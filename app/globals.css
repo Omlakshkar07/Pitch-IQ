@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-marquee-vertical {
+    animation: marquee-vertical linear infinite;
+  }
+
+  @keyframes marquee-vertical {
+    from {
+      transform: translateY(0);
+    }
+
+    to {
+      transform: translateY(-50%);
+    }
+  }
+
+  .mask-gradient-y {
+    mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+  }
+}
+
+@layer base {
+  :root {
+    /* Dark theme - RichPath style */
+    --background: 0 0% 5%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 22 90% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 22 90% 50%;
+    --chart-1: 22 90% 50%;
+    --chart-2: 221 83% 53%;
+    --chart-3: 37 91% 55%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 220 14% 60%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 22 90% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 22 90% 50%;
+
+    --emerald: 22 90% 50%;
+    --emerald-foreground: 0 0% 100%;
+    --blue: 221 83% 53%;
+    --blue-foreground: 0 0% 100%;
+    --amber: 37 91% 55%;
+    --amber-foreground: 0 0% 100%;
+    --flag-green: 160 84% 39%;
+    --flag-amber: 37 91% 55%;
+    --flag-red: 0 84% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom glow effect */
+.hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(232, 93, 4, 0.3) 0%, rgba(232, 93, 4, 0.1) 40%, transparent 70%);
+  filter: blur(60px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Dashboard card styling */
+.dashboard-card {
+  background: linear-gradient(145deg, hsl(0 0% 10%) 0%, hsl(0 0% 6%) 100%);
+  border: 1px solid hsl(0 0% 15%);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Orange accent card */
+.accent-card {
+  background: linear-gradient(135deg, hsl(22 90% 50%) 0%, hsl(22 90% 40%) 100%);
+}

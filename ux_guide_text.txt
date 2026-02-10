@@ -1,0 +1,872 @@
+Pitch Deck Analysis Dashboard
+Complete UI/UX Design Guide for Analysis Results Display
+
+Executive Summary
+This guide provides a comprehensive UI/UX design strategy for displaying pitch deck analysis results from your AI agent. The analysis contains rich data across six scoring dimensions, team information, risk assessment, and improvement suggestions.
+
+Key Design Principles:
+1. VISUAL HIERARCHY: Lead with the overall score (54/100), then show category breakdown
+2. PROGRESSIVE DISCLOSURE: Start with summary, allow drill-down into details
+3. ACTIONABLE INSIGHTS: Emphasize improvement suggestions and next steps
+4. RISK TRANSPARENCY: Clear visual indicators for red/amber/green flags
+5. DATA STORYTELLING: Use charts and visualizations to make insights scannable
+
+The dashboard should serve two audiences:
+• FOUNDERS: See their score, understand weaknesses, get actionable improvements
+• VCs/ADMINS: Quick assessment of deal quality, compare to benchmarks, identify concerns
+
+
+1. Page Layout & Information Architecture
+The analysis results page should be organized into clear sections with logical flow:
+
+Recommended Layout Structure
+┌─────────────────────────────────────────────────────────────────┐
+│ 🎯 HEADER: Analysis Summary (Overall Score + Key Metrics)      │
+├─────────────────────────────────────────────────────────────────┤
+│ 📊 SECTION 1: Score Breakdown (6 Categories with Charts)       │
+├─────────────────────────────────────────────────────────────────┤
+│ 🚦 SECTION 2: Risk Assessment (Red/Amber/Green Flags)          │
+├─────────────────────────────────────────────────────────────────┤
+│ 💡 SECTION 3: Improvement Suggestions (Action Items)           │
+├─────────────────────────────────────────────────────────────────┤
+│ 👥 SECTION 4: Team & Traction Details (Expandable)             │
+├─────────────────────────────────────────────────────────────────┤
+│ 📈 SECTION 5: Business Model & Market Analysis (Expandable)    │
+├─────────────────────────────────────────────────────────────────┤
+│ ⚡ FOOTER: Action Buttons (Download Report, Share, Compare)     │
+└─────────────────────────────────────────────────────────────────┘
+
+Why This Structure?
+Starts with the most important metric (overall score) - satisfies the "5-second rule"
+Progressive disclosure - critical info first, details accessible on demand
+Action-oriented - improvement suggestions prominently placed
+Risk-aware - flags are highly visible for quick risk assessment
+Scannable - sections can be quickly skimmed or deeply explored
+
+
+2. HEADER: Analysis Summary Design
+Visual Layout
+┌───────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  📊 Pitch Deck Analysis Results                                  │
+│  Analysis ID: 02eae131 | Analyzed on Feb 7, 2026, 3:15 PM        │
+│                                                                   │
+│  ┌─────────────────────┐  ┌─────────────────────────────────┐   │
+│  │                     │  │                                 │   │
+│  │   OVERALL SCORE     │  │     PERCENTILE RANKING          │   │
+│  │                     │  │                                 │   │
+│  │       54/100        │  │          50th                   │   │
+│  │   [Circular gauge]  │  │   [Percentile indicator]        │   │
+│  │                     │  │                                 │   │
+│  │   ⚠️ Needs Work      │  │   Middle of the pack           │   │
+│  │                     │  │                                 │   │
+│  └─────────────────────┘  └─────────────────────────────────┘   │
+│                                                                   │
+│  Quick Insights:                                                 │
+│  💪 STRENGTHS: Team (80), Market Opportunity (80)                │
+│  ⚠️ CONCERNS: Idea Novelty (30), Risk Management (25)            │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+
+Design Specifications
+• Overall Score Display
+SIZE: Extra large - 48-64px font size
+POSITION: Left side, prominent placement
+VISUAL: Circular gauge/donut chart showing 54% filled
+COLOR CODING:
+0-40: Red (#E74C3C)
+41-70: Amber/Orange (#FF6600)
+71-100: Green (#27AE60)
+LABEL: Show rating category below score:
+0-40: "⚠️ Needs Significant Work"
+41-70: "⚠️ Needs Work" or "📊 Average"
+71-85: "✅ Good"
+86-100: "🌟 Excellent"
+• Percentile Ranking
+SIZE: Large - 36-48px font size
+POSITION: Right side, paired with overall score
+VISUAL: Horizontal percentile bar showing position
+CONTEXT: "You're in the 50th percentile - middle of the pack"
+COMPARISON: Show how score compares to funded startups avg
+• Quick Insights Summary
+STRENGTHS: Show top 2 scoring categories with emoji ✅
+CONCERNS: Show bottom 2 scoring categories with emoji ⚠️
+FORMAT: Single line, scannable, emoji-enhanced
+PURPOSE: Give instant sense of what's good/bad
+• Metadata Bar
+Analysis ID (for reference)
+Timestamp (human-readable format)
+Optional: Analyst name, Deck version number
+STYLE: Small, gray text, non-intrusive
+
+
+3. SECTION 1: Score Breakdown Design
+This is the most data-rich section. Present the 6 scoring categories with visual clarity.
+
+Visual Layout Options
+OPTION A: Horizontal Bar Chart (Recommended)
+
+┌─────────────────────────────────────────────────────────────────┐
+│  📊 Score Breakdown by Category                                │
+│                                                                 │
+│  Team Capability          80  ████████████████░░  [Details ▼] │
+│  Market Opportunity       80  ████████████████░░  [Details ▼] │
+│  Scalability              50  ██████████░░░░░░░  [Details ▼] │
+│  Traction/Feasibility     40  ████████░░░░░░░░░  [Details ▼] │
+│  Idea Novelty             30  ██████░░░░░░░░░░░  [Details ▼] │
+│  Risk/Sustainability      25  █████░░░░░░░░░░░░  [Details ▼] │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+OPTION B: Radar/Spider Chart
+
+┌─────────────────────────────────────────────────────────────────┐
+│  📊 Score Breakdown by Category                                │
+│                                                                 │
+│                    Team (80)                                    │
+│                        /\                                       │
+│                       /  \                                      │
+│                      /    \                                     │
+│   Idea (30) --------/      \-------- Market (80)               │
+│                    /   54   \                                   │
+│                   /          \                                  │
+│                  /            \                                 │
+│    Risk (25) ---              --- Traction (40)                │
+│                  \            /                                 │
+│                   \          /                                  │
+│                    \        /                                   │
+│                     \      /                                    │
+│                      \    /                                     │
+│                       \  /                                      │
+│                        \/                                       │
+│                  Scalability (50)                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Recommended Approach: HYBRID
+Use BOTH visualizations:
+
+PRIMARY VIEW: Horizontal bar chart (easier to read exact scores)
+SECONDARY VIEW: Radar chart (shows overall profile at a glance)
+TOGGLE: Allow users to switch between views
+MOBILE: Default to horizontal bars (better for small screens)
+
+Interactive Expandable Details
+Each category should expand to show AI reasoning. Example for "Team Capability (80)":
+
+┌─────────────────────────────────────────────────────────────────┐
+│  👥 Team Capability: 80/100                         [Collapse ▲]│
+│                                                                 │
+│  ✅ STRENGTHS:                                                  │
+│  • Ivy League educated co-founders                             │
+│  • Hanna: Deep experience in startups & e-commerce in India    │
+│  • Leeza: Renowned expert in the domain (sex education)        │
+│  • Complementary skills: operations + content/brand            │
+│                                                                 │
+│  ⚠️ GAPS:                                                       │
+│  • Team size unknown - may lack specialized roles              │
+│  • No technical co-founder mentioned (for D2C tech stack)      │
+│                                                                 │
+│  📋 KEY EXPERTISE:                                              │
+│  🔹 Sexual wellness education                                  │
+│  🔹 Brand building                                             │
+│  🔹 E-commerce                                                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Design Specifications for Score Breakdown
+• Bar Chart Design
+WIDTH: Full width of container, min 600px
+BAR HEIGHT: 40-50px (comfortable click target)
+COLOR GRADIENT: Same as overall score (red → amber → green)
+LABELS: Category name on left, score on right
+HOVER STATE: Show tooltip with more detail
+CLICK: Expand accordion with full analysis
+• Radar Chart Design
+SIZE: Square, 400x400px typical
+FILLED AREA: Semi-transparent orange (#FF6600, 30% opacity)
+OUTLINE: Solid orange line (2px)
+GRID: Light gray reference circles (25, 50, 75, 100)
+LABELS: Category names at each vertex
+SCORES: Display number at each point
+• Expandable Accordion
+ANIMATION: Smooth 300ms ease-in-out
+ICON: Chevron down/up to indicate state
+PADDING: Generous (20px) for readability
+BACKGROUND: Subtle gray (#F8F9FA) when expanded
+COLLAPSE ALL: Button to close all accordions at once
+• Mobile Optimization
+Stack bars vertically
+Reduce bar height to 35px
+Hide radar chart by default (show in modal on tap)
+Make accordion full-width
+Larger touch targets (min 44x44px)
+
+
+4. SECTION 2: Risk Assessment Design
+The risk flags (red/amber/green) are critical for investment decisions. Make them highly visible and scannable.
+
+Visual Layout
+┌─────────────────────────────────────────────────────────────────┐
+│  🚦 Risk Assessment                                            │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐ │
+│  │ 🔴 RED FLAGS    │  │ 🟠 AMBER FLAGS  │  │ 🟢 GREEN FLAGS │ │
+│  │      3          │  │       2         │  │       1        │ │
+│  └─────────────────┘  └─────────────────┘  └────────────────┘ │
+│                                                                 │
+│  🔴 CRITICAL CONCERNS (Immediate attention required)           │
+│                                                                 │
+│  • Cultural stigma around sexual wellness in India             │
+│    💡 Consider: Brand positioning strategy & education         │
+│                                                                 │
+│  • High reliance on organic traffic for sales                  │
+│    💡 Consider: Diversified customer acquisition channels      │
+│                                                                 │
+│  • Competition from established brands entering market         │
+│    💡 Consider: Defensibility moats & first-mover advantage    │
+│                                                                 │
+│  🟠 MODERATE CONCERNS (Monitor closely)                        │
+│                                                                 │
+│  • Market acceptance of sexual wellness products               │
+│    💡 Consider: Market research & customer validation          │
+│                                                                 │
+│  • Economic fluctuations affecting consumer spending           │
+│    💡 Consider: Pricing strategy & value communication         │
+│                                                                 │
+│  🟢 POSITIVE INDICATORS                                        │
+│                                                                 │
+│  ✓ Clear technology or product claims present                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Design Specifications
+• Flag Count Cards
+LAYOUT: 3 cards side-by-side (responsive: stack on mobile)
+SIZE: Equal width, 150-200px each
+BACKGROUND:
+• Red flags: Light red (#FFEBEE)
+• Amber flags: Light orange (#FFF3E0)
+• Green flags: Light green (#E8F5E9)
+NUMBER: Large, bold (32-40px font)
+ICON: Traffic light emoji or colored circle
+BORDER: 2px solid in matching color when count > 0
+• Flag Lists
+ORDER: Always Red → Amber → Green (criticality)
+SPACING: Generous vertical spacing between items
+BULLET: Colored circle (● in red/amber/green)
+TEXT: Clear, concise flag description
+CONTEXT: Optional "💡 Consider:" suggestion under each
+COLLAPSIBLE: Can collapse/expand each section
+• Visual Indicators
+Use emojis for quick scanning: 🔴 🟠 🟢
+Severity ranking: Sort red flags by importance
+Hover tooltips: Additional context on hover
+Empty state: If no flags, show "✅ No concerns in this category"
+• Action Suggestions
+Each flag should have actionable mitigation strategy
+Format: "💡 Consider: [specific action]"
+Link to resources where applicable
+Allow founders to mark as "addressed" (track progress)
+
+Color Psychology & Accessibility
+Don't rely ONLY on color - use icons and text labels
+Ensure sufficient contrast ratios (WCAG AA minimum)
+Provide color-blind friendly alternatives (patterns/textures)
+Use semantic HTML (alerts, warnings) for screen readers
+Test with color blindness simulators
+
+
+5. SECTION 3: Improvement Suggestions Design
+This section is critical for founders - it tells them exactly what to do next.
+
+Visual Layout
+┌─────────────────────────────────────────────────────────────────┐
+│  💡 Improvement Roadmap (2 Action Items)                       │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ 🎯 HIGH PRIORITY                                     │      │
+│  │                                                      │      │
+│  │ 1. Quantify traction in revenue terms or pilot      │      │
+│  │    conversion outcomes                               │      │
+│  │                                                      │      │
+│  │ 📊 Impact: +15-20 points on Traction score          │      │
+│  │ ⏱️ Effort: Medium (2-3 weeks to compile data)       │      │
+│  │                                                      │      │
+│  │ ✅ What to do:                                       │      │
+│  │ • Add revenue slide with MRR/ARR breakdown          │      │
+│  │ • Include customer acquisition metrics               │      │
+│  │ • Show pilot program results if available           │      │
+│  │                                                      │      │
+│  │ 📚 Resources: [Template] [Example] [Guide]          │      │
+│  │                                                      │      │
+│  │ [Mark as Done] [Not Applicable] [Need Help]         │      │
+│  └──────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ 🎯 HIGH PRIORITY                                     │      │
+│  │                                                      │      │
+│  │ 2. Clarify business model and pricing                │      │
+│  │    (who pays, how much, why)                         │      │
+│  │                                                      │      │
+│  │ 📊 Impact: +10-15 points on Business Model clarity  │      │
+│  │ ⏱️ Effort: Low (1 week to create slide)             │      │
+│  │                                                      │      │
+│  │ ✅ What to do:                                       │      │
+│  │ • Add pricing strategy slide                        │      │
+│  │ • Explain D2C unit economics                         │      │
+│  │ • Show customer LTV and CAC                          │      │
+│  │                                                      │      │
+│  │ 📚 Resources: [Template] [Example] [Guide]          │      │
+│  │                                                      │      │
+│  │ [Mark as Done] [Not Applicable] [Need Help]         │      │
+│  └──────────────────────────────────────────────────────┘      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Design Specifications
+• Priority Labeling
+HIGH PRIORITY: Red/orange badge (🎯)
+MEDIUM PRIORITY: Yellow badge (📊)
+LOW PRIORITY: Blue badge (💡)
+Sort by priority (high first)
+AI should assign priority based on score impact
+• Impact Estimation
+Show potential score improvement: "+15-20 points"
+Indicate which category benefits most
+Use data-driven estimates from historical improvements
+Help founders prioritize effectively
+• Effort Estimation
+LOW: <1 week
+MEDIUM: 1-4 weeks
+HIGH: 1+ months
+Use clock emoji ⏱️ or effort bars
+Help founders sequence actions realistically
+• Actionable Steps
+Break down into specific, concrete actions
+Use checkboxes for task management feel
+Link to templates, examples, guides
+Provide "success criteria" for each item
+• Progress Tracking
+Allow founders to mark items as "Done"
+Track completion % across all suggestions
+Send reminders for incomplete high-priority items
+Show progress badge on dashboard (e.g., "3/5 improvements completed")
+• Get Help CTA
+"Need Help" button to request expert consultation
+"View Example" to see sample pitch deck slides
+"Schedule Review" to book follow-up analysis
+Connect to resources/community for support
+
+
+6. SECTION 4: Team & Traction Details Design
+Detailed information should be available but not overwhelming. Use expandable cards.
+
+Team Information Display
+┌─────────────────────────────────────────────────────────────────┐
+│  👥 Team Overview                                [Collapse ▲]  │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ 👤 Hanna Strömgren Khan - Co-Founder & CEO          │      │
+│  │ 🎓 Ivy League Graduate                              │      │
+│  │ 💼 Experience:                                       │      │
+│  │    • Founder & CEO, Bozzil Group                    │      │
+│  │    • Co-founder, Leezu's and Simply Nam             │      │
+│  │    • Deep expertise in startups, e-commerce, brand  │      │
+│  │                                                      │      │
+│  │ [LinkedIn] [More Info]                               │      │
+│  └──────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ 👤 Leeza Mangaldas - Co-Founder                     │      │
+│  │ 🎓 Ivy League Graduate                              │      │
+│  │ 💼 Experience:                                       │      │
+│  │    • Renowned sex education content creator         │      │
+│  │    • Published author                                │      │
+│  │    • Award-winning work in sexual wellness space    │      │
+│  │                                                      │      │
+│  │ [LinkedIn] [More Info]                               │      │
+│  └──────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  📊 Team Expertise Coverage:                                   │
+│  🔹 Sexual wellness education ✓                                │
+│  🔹 Brand building ✓                                           │
+│  🔹 E-commerce ✓                                               │
+│                                                                 │
+│  ⚠️ Potential Gaps:                                            │
+│  • Team size not disclosed                                     │
+│  • Technical co-founder not mentioned                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Traction Metrics Display
+┌─────────────────────────────────────────────────────────────────┐
+│  📈 Traction & Metrics                          [Collapse ▲]  │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │  Revenue     │  │ Growth Rate  │  │Capital Raised│         │
+│  │              │  │              │  │              │         │
+│  │ Not Disclosed│  │  5x in 2yrs  │  │   $1M USD    │         │
+│  │              │  │ (brand search│  │              │         │
+│  │  ⚠️ Gap      │  │   volume)    │  │  ✅ Seed     │         │
+│  └──────────────┘  └──────────────┘  └──────────────┘         │
+│                                                                 │
+│  📊 Growth Indicators:                                         │
+│  • 5x brand search volume over 2 years                         │
+│  • Significant organic traction                                │
+│  • Award-winning products                                      │
+│                                                                 │
+│  ⚠️ Missing Data:                                              │
+│  • Revenue figures not disclosed                               │
+│  • Runway information unavailable                              │
+│  • Customer count not provided                                 │
+│                                                                 │
+│  💡 Recommendation: Quantify revenue and customer metrics      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+7. SECTION 5: Business Model & Market Analysis
+┌─────────────────────────────────────────────────────────────────┐
+│  💼 Business Model                              [Collapse ▲]  │
+│                                                                 │
+│  Pyaari operates on a direct-to-consumer (D2C) model,          │
+│  allowing it to maintain control over branding and customer    │
+│  experience. This model supports its rapid growth and ability  │
+│  to engage directly with consumers in the Indian market.       │
+│                                                                 │
+│  Key Characteristics:                                          │
+│  ✓ Direct customer relationships                               │
+│  ✓ Brand control and positioning                               │
+│  ✓ Higher margins vs. retail distribution                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  🎯 Market Problem & Opportunity                [Collapse ▲]  │
+│                                                                 │
+│  Problem:                                                       │
+│  The sexual wellness sector in India is underserved, with a    │
+│  growing demand for high-quality, accessible products.         │
+│  Consumers face limited options and social stigma, hindering   │
+│  their ability to access and purchase these products           │
+│  comfortably.                                                   │
+│                                                                 │
+│  Solution:                                                      │
+│  Pyaari stands out as India's fastest growing pleasure brand,  │
+│  offering award-winning products that have gained significant  │
+│  organic traction. Focus on quality and consumer education led │
+│  to 5x increase in brand search volume over two years.         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+8. Recommended Charts & Data Visualizations
+Visual data representation makes the dashboard scannable and engaging. Here are the recommended chart types:
+
+1. Overall Score: Circular Gauge/Donut Chart
+Purpose: Show overall score (54/100) as a filled circle
+
+Specifications:
+TYPE: Donut chart with 54% fill
+COLORS: Gradient based on score range
+0-40: Red gradient
+41-70: Orange gradient (this case)
+71-100: Green gradient
+CENTER: Display score number (54) and label ("Needs Work")
+THICKNESS: Medium donut width (20-30% of radius)
+ANIMATION: Animate fill from 0 to 54 on page load
+LIBRARY: Chart.js, Recharts, or D3.js
+
+2. Category Breakdown: Horizontal Bar Chart
+Purpose: Compare 6 scoring categories side-by-side
+
+Specifications:
+TYPE: Horizontal stacked/gradient bars
+X-AXIS: 0 to 100
+Y-AXIS: Category names (sorted by score, high to low)
+BAR COLOR: Gradient within each bar:
+Left (low): Red
+Middle: Orange
+Right (high): Green
+DATA LABELS: Show score at end of each bar
+GRID LINES: Light vertical lines at 25, 50, 75, 100
+HOVER: Highlight bar and show tooltip with details
+LIBRARY: Recharts (responsive), Chart.js, or D3.js
+
+3. Category Breakdown: Radar/Spider Chart
+Purpose: Show overall profile shape at a glance
+
+Specifications:
+TYPE: Radar chart with 6 axes
+AXES: One for each category, evenly spaced
+SCALE: 0-100 on each axis
+FILL: Semi-transparent orange (#FF6600, 30% opacity)
+LINE: Solid orange border (2-3px)
+GRID: Concentric circles at 25, 50, 75, 100
+POINTS: Markers at each category score
+LABELS: Category names outside the grid
+HOVER: Highlight point and show score
+LIBRARY: Recharts, Chart.js, or Nivo
+
+4. Percentile Ranking: Horizontal Progress Bar
+Purpose: Show position relative to other startups
+
+Specifications:
+TYPE: Horizontal progress bar with marker
+LENGTH: Full width
+SEGMENTS: Show quartiles (0-25-50-75-100)
+MARKER: Triangle or circle at 50th percentile
+COLOR: Gray background, orange for position marker
+LABELS: "Bottom 25%", "Average", "Top 25%"
+CONTEXT: "You're in the 50th percentile"
+LIBRARY: Custom CSS or simple SVG
+
+5. Risk Distribution: Pie or Donut Chart
+Purpose: Show proportion of red/amber/green flags
+
+Specifications:
+TYPE: Simple donut chart
+SEGMENTS: 3 (red, amber, green)
+COLORS: 
+Red: #E74C3C
+Amber: #FF6600
+Green: #27AE60
+SIZE: Small (150-200px)
+LABELS: Count in each segment (3, 2, 1)
+HOVER: Show flag category name
+OPTIONAL: Show only if multiple flag types exist
+LIBRARY: Chart.js or Recharts
+
+6. Improvement Priority: Kanban-style Board
+Purpose: Visual task management for improvements
+
+Specifications:
+TYPE: Columns - "To Do", "In Progress", "Done"
+CARDS: Each improvement suggestion as draggable card
+PRIORITY: Color-coded badges (high/med/low)
+PROGRESS: Visual indicator (0%, 50%, 100%)
+INTERACTION: Drag-and-drop to change status
+LIBRARY: react-beautiful-dnd, react-dnd
+
+7. Score Comparison: Grouped Bar Chart
+Purpose: Compare this startup to benchmarks (if data available)
+
+Specifications:
+TYPE: Grouped horizontal bars
+GROUPS: "This Startup" vs "Funded Avg" vs "Top 25%"
+CATEGORIES: 6 scoring dimensions
+COLORS: Orange (this), Gray (avg), Green (top)
+PURPOSE: Show gap to investment-ready threshold
+LIBRARY: Recharts, Chart.js
+
+8. Score History: Line Chart (if multiple analyses)
+Purpose: Track score improvement over time
+
+Specifications:
+TYPE: Multi-line chart
+X-AXIS: Timeline (analysis dates)
+Y-AXIS: Score (0-100)
+LINES: Overall + each category
+HIGHLIGHT: Overall score line (thicker, orange)
+MARKERS: Points at each analysis
+TREND: Show trajectory (improving/declining)
+LIBRARY: Recharts, Chart.js
+
+
+9. Responsive Design Guidelines
+Desktop (1200px+)
+Full multi-column layout
+2-3 columns for metric cards
+Side-by-side charts (bar + radar)
+Expandable sections default to open
+Sticky header with score summary
+Full-width improvement cards with side-by-side content
+
+Tablet (768px - 1199px)
+2-column layout for most sections
+Stack some charts vertically
+Reduce chart sizes slightly
+Maintain expandable sections
+Collapsible navigation sidebar
+Touch-friendly button sizes (min 44x44px)
+
+Mobile (< 768px)
+Single column, fully stacked
+Simplified charts (bar chart only, hide radar)
+Sticky header with collapsed score
+Accordions default to closed
+Bottom sheet for detailed views
+Swipe gestures for navigation
+Reduced text, focus on key metrics
+FAB (Floating Action Button) for main CTA
+
+
+Mobile-Specific Optimizations
+Progressive loading: Load above-the-fold first
+Lazy load charts and detailed sections
+Use native device features (share, save to home)
+Bottom navigation for primary actions
+Swipe between sections instead of scrolling
+Reduce animation complexity for performance
+Offline support for viewing cached results
+
+
+10. Footer: Action Buttons Design
+Provide clear next-step actions at the bottom of the analysis:
+
+┌─────────────────────────────────────────────────────────────────┐
+│  Next Steps                                                     │
+│                                                                 │
+│  [📥 Download PDF Report]  [📧 Email to Team]  [🔄 Re-analyze] │
+│                                                                 │
+│  [📊 Compare to Benchmarks]  [💬 Get Expert Review]             │
+│                                                                 │
+│  [⬅️ Back to Dashboard]  [➡️ Upload New Version]               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+• Download PDF Report
+  Function: Generate formatted PDF with all analysis details
+  Style: Secondary button (outline)
+  Icon: 📥 or download icon
+
+• Email to Team
+  Function: Send analysis to co-founders or team members
+  Style: Secondary button
+  Icon: 📧 or share icon
+
+• Re-analyze Deck
+  Function: Upload updated version for fresh analysis
+  Style: Primary button (orange)
+  Icon: 🔄 or refresh icon
+
+• Compare to Benchmarks
+  Function: See how this compares to funded startups
+  Style: Secondary button
+  Icon: 📊 or chart icon
+
+• Get Expert Review
+  Function: Schedule consultation or request human review
+  Style: Primary button (orange)
+  Icon: 💬 or user icon
+
+• Back to Dashboard
+  Function: Return to main founder dashboard
+  Style: Text link or tertiary button
+  Icon: ⬅️ or back arrow
+
+• Upload New Version
+  Function: Upload improved deck based on suggestions
+  Style: Primary CTA button (orange, prominent)
+  Icon: ➡️ or upload icon
+
+
+11. Complete Design System
+Color Palette
+
+Typography
+PRIMARY FONT: Inter, DM Sans, or Poppins (modern sans-serif)
+FALLBACK: -apple-system, system-ui, Arial
+HEADING 1: 32-40px, Bold, Dark Gray
+HEADING 2: 24-28px, Semi-Bold, Dark Gray
+HEADING 3: 18-20px, Semi-Bold, Dark Gray
+BODY TEXT: 14-16px, Regular, Dark Gray
+CAPTION: 12-14px, Regular, Medium Gray
+SCORE NUMBERS: 48-64px, Bold, Color-coded
+BUTTON TEXT: 14-16px, Medium/Semi-Bold, White or Dark
+LINE HEIGHT: 1.5 for body, 1.2 for headings
+LETTER SPACING: Slight tracking for headings (+0.5px)
+
+Spacing System (8px Grid)
+XS: 4px - Tight spacing within components
+SM: 8px - Default spacing between related elements
+MD: 16px - Spacing between components
+LG: 24px - Spacing between sections
+XL: 32px - Major section breaks
+XXL: 48px - Page-level spacing
+CARD PADDING: 16-24px
+BUTTON PADDING: 12px vertical, 24px horizontal
+SECTION MARGIN: 32-48px between major sections
+
+Component Library
+Build these reusable components:
+ScoreGauge - Circular donut chart for overall score
+ScoreBar - Horizontal bar for category scores
+FlagCard - Red/Amber/Green flag display card
+ImprovementCard - Action item with priority, impact, effort
+TeamMemberCard - Founder profile with photo and details
+MetricCard - Generic metric display (number + label + trend)
+AccordionSection - Expandable/collapsible content section
+ChartContainer - Wrapper for all chart types
+ActionButton - Primary, secondary, tertiary button styles
+Badge - Priority, status, category labels
+Tooltip - Hover information overlay
+EmptyState - Placeholder when no data available
+
+
+12. Implementation Checklist
+✅ Data & API Integration
+☐ Parse JSON response from AI agent
+☐ Handle missing/null fields gracefully
+☐ Implement error states for failed API calls
+☐ Add loading states during analysis
+☐ Cache results for offline viewing
+☐ Implement real-time updates if applicable
+
+✅ Visual Design
+☐ Implement color palette consistently
+☐ Set up typography system
+☐ Create spacing/grid system
+☐ Design all component states (default, hover, active, disabled)
+☐ Ensure WCAG AA accessibility compliance
+☐ Add dark mode support (optional)
+☐ Test with color blindness simulators
+
+✅ Charts & Visualizations
+☐ Install chart library (Recharts recommended)
+☐ Build circular gauge for overall score
+☐ Build horizontal bar chart for categories
+☐ Build radar chart for profile view
+☐ Implement percentile progress bar
+☐ Add animations (load, hover, transition)
+☐ Make all charts responsive
+☐ Ensure charts work on mobile devices
+
+✅ Interactivity
+☐ Implement expandable accordions
+☐ Add hover states and tooltips
+☐ Enable chart interactions (click, hover)
+☐ Build improvement task management (mark as done)
+☐ Add sharing functionality (email, link)
+☐ Implement PDF export
+☐ Add "copy analysis ID" feature
+☐ Enable deep linking to specific sections
+
+✅ Responsive Design
+☐ Test on desktop (1920px, 1366px, 1024px)
+☐ Test on tablet (768px, 1024px)
+☐ Test on mobile (375px, 414px)
+☐ Ensure touch targets are minimum 44x44px
+☐ Optimize images for different screen sizes
+☐ Test landscape and portrait orientations
+☐ Progressive enhancement approach
+
+✅ Performance
+☐ Lazy load charts and heavy components
+☐ Optimize bundle size (code splitting)
+☐ Implement virtualization for long lists
+☐ Compress and optimize images
+☐ Use CSS animations over JavaScript when possible
+☐ Target <3s initial load time
+☐ Test on slow 3G connections
+
+✅ User Experience
+☐ Add empty states for missing data
+☐ Provide clear error messages
+☐ Show loading indicators
+☐ Add success confirmations (download, share)
+☐ Implement keyboard navigation
+☐ Add skip-to-content link
+☐ Test with screen readers
+☐ Provide help/info tooltips
+
+✅ Testing & QA
+☐ Unit tests for data parsing logic
+☐ Integration tests for API calls
+☐ Visual regression tests for UI
+☐ Cross-browser testing (Chrome, Firefox, Safari, Edge)
+☐ Accessibility audit (axe, WAVE)
+☐ Performance profiling
+☐ User acceptance testing with real founders
+
+
+13. Recommended Technology Stack
+
+
+14. Sample Code Structure
+Here's a recommended file structure for the analysis results page:
+
+
+/components
+  /analysis
+    AnalysisHeader.jsx           # Overall score + percentile
+    ScoreBreakdown.jsx            # Category scores with charts
+    ScoreGauge.jsx                # Circular donut chart component
+    ScoreBarChart.jsx             # Horizontal bar chart
+    ScoreRadarChart.jsx           # Radar/spider chart
+    RiskAssessment.jsx            # Red/amber/green flags
+    FlagCard.jsx                  # Individual flag display
+    ImprovementSuggestions.jsx    # Action items
+    ImprovementCard.jsx           # Single improvement item
+    TeamDetails.jsx               # Founder information
+    TeamMemberCard.jsx            # Individual founder card
+    TractionMetrics.jsx           # Growth and funding data
+    BusinessModel.jsx             # Model and market analysis
+    ActionButtons.jsx             # Footer CTAs
+    
+  /shared
+    Button.jsx                    # Reusable button component
+    Card.jsx                      # Container component
+    Badge.jsx                     # Label/tag component
+    Accordion.jsx                 # Expandable section
+    Tooltip.jsx                   # Info overlay
+    EmptyState.jsx                # No data placeholder
+    
+/pages
+  /analysis
+    [id].jsx                      # Analysis results page
+    
+/hooks
+  useAnalysisData.js              # Fetch and parse analysis
+  useChartData.js                 # Transform data for charts
+  
+/utils
+  dataParser.js                   # Parse JSON response
+  scoreCalculator.js              # Calculate derived metrics
+  colorUtils.js                   # Color coding logic
+  formatters.js                   # Date, number formatting
+  
+/styles
+  colors.js                       # Color palette constants
+  typography.js                   # Font system
+  spacing.js                      # Spacing tokens
+
+
+
+Summary & Next Steps
+This comprehensive guide provides everything you need to design and implement a professional, user-friendly pitch deck analysis results dashboard.
+Key Takeaways:
+1. PROGRESSIVE DISCLOSURE: Start with summary (overall score), then allow drill-down into details
+2. VISUAL HIERARCHY: Use size, color, and position to guide attention to what matters most
+3. ACTIONABLE: Every insight should lead to clear next steps for improvement
+4. SCANNABLE: Busy VCs and founders need to absorb info quickly - use charts, badges, emojis
+5. ACCESSIBLE: Design for all users, including those with disabilities
+6. RESPONSIVE: Mobile-first approach - many founders will view on phones
+Recommended Implementation Sequence:
+WEEK 1-2: Core Layout & Data Integration
+• Set up page structure and component hierarchy
+• Build API integration and data parsing
+• Implement basic layout (header, sections, footer)
+WEEK 3-4: Visualizations & Interactivity
+• Build all chart components (gauge, bars, radar)
+• Implement expandable accordions
+• Add hover states and tooltips
+WEEK 5-6: Polish & Optimization
+• Responsive design refinements
+• Performance optimization
+• Accessibility audit and fixes
+• User testing with real founders
+WEEK 7-8: Advanced Features
+• PDF export functionality
+• Sharing capabilities
+• Improvement task tracking
+• Comparison to benchmarks
+Success Metrics to Track:
+• Time spent on page (target: 3-5 minutes for thorough review)
+• Scroll depth (ensure users see improvement suggestions)
+• CTA clicks (re-analyze, download, expert review)
+• Mobile vs desktop usage
+• Drop-off points (identify confusing sections)
+The key is to make complex AI analysis accessible and actionable. Good design transforms data into insights, and insights into action. Your founders should leave this page knowing exactly what to improve and feeling motivated to do it.
+Good luck with the implementation!

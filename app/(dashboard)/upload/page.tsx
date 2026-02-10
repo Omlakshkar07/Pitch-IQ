@@ -1,0 +1,465 @@
+"use client"
+
+import React from "react"
+
+import { useCallback, useState, useRef } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import {
+  CloudUpload,
+  FileText,
+  X,
+  Info,
+  CheckCircle,
+  Loader2,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
+import { useAuthStore, useDecksStore } from "@/lib/store"
+import { generateMockAnalysis } from "@/lib/mock-data"
+import { toast } from "sonner"
+import type { Deck } from "@/lib/types"
+
+const VALID_TYPES = [
+  "application/pdf",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]
+const VALID_EXTENSIONS = [".pdf", ".ppt", ".pptx"]
+const MAX_SIZE = 50 * 1024 * 1024
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return bytes + " B"
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+}
+
+type UploadState = "idle" | "selected" | "uploading" | "processing" | "done"
+
+export default function UploadPage() {
+  const router = useRouter()
+  const user = useAuthStore((s) => s.user)
+  const { addDeck, addAnalysis, updateDeck } = useDecksStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [file, setFile] = useState<File | null>(null)
+  const [uploadState, setUploadState] = useState<UploadState>("idle")
+  const [progress, setProgress] = useState(0)
+  const [dragOver, setDragOver] = useState(false)
+  const [showInfo, setShowInfo] = useState(true)
+  const [error, setError] = useState("")
+
+  // Optional metadata
+  const [meta, setMeta] = useState({
+    sector: "",
+    stage: "",
+    revenue: "",
+    teamSize: "",
+    foundingYear: "",
+    location: "",
+    incorporationStatus: "",
+    fundraisingStatus: "",
+    fundRaised: false,
+    founderName: "",
+    founderEmail: "",
+    founderPhone: "",
+    analysisMode: "",
+  })
+
+  function validateFile(f: File): string | null {
+    const ext = "." + f.name.split(".").pop()?.toLowerCase()
+    if (!VALID_TYPES.includes(f.type) && !VALID_EXTENSIONS.includes(ext)) {
+      return "Invalid file type. Please upload a PDF, PPT, or PPTX file."
+    }
+    if (f.size > MAX_SIZE) {
+      return "File is too large. Maximum size is 50MB."
+    }
+    return null
+  }
+
+  function handleFile(f: File) {
+    setError("")
+    const err = validateFile(f)
+    if (err) {
+      setError(err)
+      return
+    }
+    setFile(f)
+    setUploadState("selected")
+  }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files[0]
+    if (f) handleFile(f)
+  }, [])
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+  }
+
+  function removeFile() {
+    setFile(null)
+    setUploadState("idle")
+    setProgress(0)
+    setError("")
+  }
+
+  async function handleStartAnalysis() {
+    if (!file || !user) return
+
+    setUploadState("uploading")
+    setProgress(0)
+
+    // Simulate upload progress
+    for (let i = 0; i <= 100; i += 5) {
+      await new Promise((r) => setTimeout(r, 80))
+      setProgress(i)
+    }
+
+    setUploadState("processing")
+
+    // Create deck
+    const deck: Deck = {
+      id: `deck_${Date.now()}`,
+      userId: user.id,
+      filename: file.name,
+      fileSize: file.size,
+      uploadDate: new Date().toISOString(),
+      status: "analyzing",
+      sector: meta.sector || undefined,
+      stage: meta.stage || undefined,
+      revenue: meta.revenue ? Number(meta.revenue) : undefined,
+      teamSize: meta.teamSize ? Number(meta.teamSize) : undefined,
+      foundingYear: meta.foundingYear ? Number(meta.foundingYear) : undefined,
+      location: meta.location || undefined,
+      incorporationStatus: meta.incorporationStatus || undefined,
+      fundraisingStatus: meta.fundraisingStatus || undefined,
+      fundRaised: meta.fundRaised,
+      founderName: meta.founderName || undefined,
+      founderEmail: meta.founderEmail || undefined,
+      founderPhone: meta.founderPhone || undefined,
+      analysisMode: meta.analysisMode || undefined,
+    }
+
+    addDeck(deck)
+
+    // Simulate AI analysis delay
+    await new Promise((r) => setTimeout(r, 2500))
+
+    const analysis = generateMockAnalysis(deck.id)
+    addAnalysis(analysis)
+    updateDeck(deck.id, { status: "completed" })
+
+    setUploadState("done")
+    toast.success("Analysis complete!")
+
+    // Navigate to results
+    setTimeout(() => {
+      router.push(`/analysis/${analysis.id}`)
+    }, 1000)
+  }
+
+  return (
+    <div>
+      <div className="mb-2">
+        <nav className="mb-1 flex items-center gap-1 text-sm text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground">
+            Home
+          </Link>
+          <span>/</span>
+          <Link href="/dashboard" className="hover:text-foreground">
+            Dashboard
+          </Link>
+          <span>/</span>
+          <span className="text-foreground">Upload</span>
+        </nav>
+        <h1 className="text-2xl font-bold text-foreground">Upload Pitch Deck</h1>
+        <p className="text-muted-foreground">Supported: PDF, PPT, PPTX (max 50MB)</p>
+      </div>
+
+      {/* Info banner */}
+      {showInfo && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+          <p className="flex-1 text-sm text-muted-foreground">
+            Your deck is encrypted and stored only in your browser. Analysis takes 2-3 minutes.
+          </p>
+          <button type="button" onClick={() => setShowInfo(false)} className="text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Dismiss</span>
+          </button>
+        </div>
+      )}
+
+      {/* Upload area */}
+      <Card className="mb-6 border-white/10 bg-black/20 backdrop-blur-md rounded-2xl shadow-xl">
+        <CardContent className="pt-6">
+          {uploadState === "idle" && (
+            <div
+              role="button"
+              tabIndex={0}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center transition-colors ${dragOver
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-muted-foreground/30"
+                }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.ppt,.pptx"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleFile(f)
+                }}
+              />
+              <CloudUpload className={`mb-4 h-16 w-16 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
+              <p className="mb-2 text-lg text-foreground">
+                {dragOver ? "Drop file to upload" : "Drag and drop your pitch deck here"}
+              </p>
+              <p className="mb-4 text-sm text-muted-foreground">or</p>
+              <Button
+                type="button"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  fileInputRef.current?.click()
+                }}
+              >
+                Browse Files
+              </Button>
+            </div>
+          )}
+
+          {uploadState === "selected" && file && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 rounded-lg border border-border p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate font-medium text-foreground">{file.name}</p>
+                  <p className="text-sm text-muted-foreground">{formatBytes(file.size)}</p>
+                </div>
+                <button type="button" onClick={removeFile} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-5 w-5" />
+                  <span className="sr-only">Remove file</span>
+                </button>
+              </div>
+              <button type="button" onClick={removeFile} className="text-sm text-primary hover:underline">
+                Change File
+              </button>
+            </div>
+          )}
+
+          {uploadState === "uploading" && (
+            <div className="space-y-4 py-8 text-center">
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+              <p className="font-medium text-foreground">Uploading...</p>
+              <div className="mx-auto max-w-xs">
+                <Progress value={progress} className="h-2" />
+                <p className="mt-2 text-sm text-muted-foreground">{progress}%</p>
+              </div>
+            </div>
+          )}
+
+          {uploadState === "processing" && (
+            <div className="space-y-4 py-8 text-center">
+              <CheckCircle className="mx-auto h-10 w-10 text-primary" />
+              <p className="font-medium text-foreground">Upload successful!</p>
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Analyzing your deck...</p>
+              </div>
+            </div>
+          )}
+
+          {uploadState === "done" && (
+            <div className="space-y-4 py-8 text-center">
+              <CheckCircle className="mx-auto h-10 w-10 text-primary" />
+              <p className="font-medium text-foreground">Analysis Complete!</p>
+              <p className="text-sm text-muted-foreground">Redirecting to results...</p>
+            </div>
+          )}
+
+          {error && (
+            <p className="mt-4 text-center text-sm text-destructive">{error}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Metadata form */}
+      {(uploadState === "idle" || uploadState === "selected") && (
+        <Card className="mb-6 border-white/10 bg-black/20 backdrop-blur-md rounded-2xl shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-base text-foreground">
+              Startup Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sector">Industry Sector <span className="text-destructive">*</span></Label>
+                <Input
+                  id="sector"
+                  placeholder="e.g., AI/ML, SaaS"
+                  value={meta.sector}
+                  onChange={(e) => setMeta((m) => ({ ...m, sector: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stage">Funding Stage <span className="text-destructive">*</span></Label>
+                <Input
+                  id="stage"
+                  placeholder="e.g., Seed, Series A"
+                  value={meta.stage}
+                  onChange={(e) => setMeta((m) => ({ ...m, stage: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="revenue">Annual Revenue (INR)</Label>
+                <Input
+                  id="revenue"
+                  type="number"
+                  placeholder="Optional"
+                  value={meta.revenue}
+                  onChange={(e) => setMeta((m) => ({ ...m, revenue: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="teamSize">Current Team Size</Label>
+                <Input
+                  id="teamSize"
+                  type="number"
+                  placeholder="Optional"
+                  value={meta.teamSize}
+                  onChange={(e) => setMeta((m) => ({ ...m, teamSize: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="foundingYear">Year Founded</Label>
+                <Input
+                  id="foundingYear"
+                  type="number"
+                  placeholder="Optional"
+                  value={meta.foundingYear}
+                  onChange={(e) => setMeta((m) => ({ ...m, foundingYear: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">HQ Location</Label>
+                <Input
+                  id="location"
+                  placeholder="Optional"
+                  value={meta.location}
+                  onChange={(e) => setMeta((m) => ({ ...m, location: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="incorporationStatus">Incorporation Status</Label>
+                <Input
+                  id="incorporationStatus"
+                  placeholder="Optional"
+                  value={meta.incorporationStatus}
+                  onChange={(e) => setMeta((m) => ({ ...m, incorporationStatus: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fundraisingStatus">Fundraising Status</Label>
+                <Input
+                  id="fundraisingStatus"
+                  placeholder="Optional"
+                  value={meta.fundraisingStatus}
+                  onChange={(e) => setMeta((m) => ({ ...m, fundraisingStatus: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between space-y-0 rounded-lg border border-border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="fundRaised">Fund Raised</Label>
+                  <p className="text-sm text-muted-foreground">Have you raised any funding before?</p>
+                </div>
+                <Switch
+                  id="fundRaised"
+                  checked={meta.fundRaised}
+                  onCheckedChange={(checked) => setMeta((m) => ({ ...m, fundRaised: checked }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="founderName">Founder Name</Label>
+                <Input
+                  id="founderName"
+                  placeholder="Optional"
+                  value={meta.founderName}
+                  onChange={(e) => setMeta((m) => ({ ...m, founderName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="founderEmail">Founder Email</Label>
+                <Input
+                  id="founderEmail"
+                  type="email"
+                  placeholder="Optional"
+                  value={meta.founderEmail}
+                  onChange={(e) => setMeta((m) => ({ ...m, founderEmail: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="founderPhone">Founder Phone</Label>
+                <Input
+                  id="founderPhone"
+                  type="tel"
+                  placeholder="Optional"
+                  value={meta.founderPhone}
+                  onChange={(e) => setMeta((m) => ({ ...m, founderPhone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="analysisMode">Analysis Mode</Label>
+                <Input
+                  id="analysisMode"
+                  placeholder="Optional"
+                  value={meta.analysisMode}
+                  onChange={(e) => setMeta((m) => ({ ...m, analysisMode: e.target.value }))}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bottom actions */}
+      {(uploadState === "idle" || uploadState === "selected") && (
+        <div className="flex items-center justify-between">
+          <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+            Cancel
+          </Link>
+          <Button
+            onClick={handleStartAnalysis}
+            disabled={uploadState !== "selected" || !meta.sector || !meta.stage}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Start Analysis
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
