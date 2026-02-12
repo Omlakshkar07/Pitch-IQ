@@ -1,13 +1,14 @@
-import type { DeckAnalysis, Deck, UserProfile, FlagColor } from "./types"
+import type { DeckAnalysis, Deck, UserProfile, FlagColor } from "./types";
+import type { AnalyzeResponse } from "./api";
 
 function getFlag(score: number): FlagColor {
-  if (score >= 75) return "green"
-  if (score >= 50) return "amber"
-  return "red"
+  if (score >= 75) return "green";
+  if (score >= 50) return "amber";
+  return "red";
 }
 
 function clampScore(score: number): number {
-  return Math.max(0, Math.min(100, score))
+  return Math.max(0, Math.min(100, score));
 }
 
 const feedbackOptions: Record<string, string[]> = {
@@ -41,21 +42,424 @@ const feedbackOptions: Record<string, string[]> = {
     "Scalability potential exists but unit economics need more validation. Include projections for the next 18-36 months.",
     "Scalability section needs more work. Clarify how the business model scales and provide evidence of improving unit economics.",
   ],
-}
+};
 
 function generateFeedback(dimension: string): string {
-  const options = feedbackOptions[dimension] || ["Good work on this section."]
-  return options[Math.floor(Math.random() * options.length)]
+  const options = feedbackOptions[dimension] || ["Good work on this section."];
+  return options[Math.floor(Math.random() * options.length)];
 }
 
+function generateImprovementItems(
+  apiResponse: AnalyzeResponse,
+): DeckAnalysis["improvementItems"] {
+  const items: DeckAnalysis["improvementItems"] = [];
+
+  if (apiResponse.idea_novelty < 70) {
+    items.push({
+      title: "Strengthen idea differentiation and novelty",
+      priority: "high",
+      impact: `+${Math.ceil((70 - apiResponse.idea_novelty) * 0.8)} points on Idea score`,
+      effort: "Medium (2-3 weeks)",
+      steps: [
+        "Highlight unique value proposition",
+        "Clarify competitive advantages",
+        "Add innovation metrics",
+      ],
+    });
+  }
+
+  if (apiResponse.team_capability < 70) {
+    items.push({
+      title: "Enhance team credibility and expertise showcase",
+      priority: "high",
+      impact: `+${Math.ceil((70 - apiResponse.team_capability) * 0.8)} points on Team score`,
+      effort: "Low (1 week)",
+      steps: [
+        "Add detailed team bios",
+        "Include relevant achievements",
+        "Highlight domain expertise",
+      ],
+    });
+  }
+
+  if (apiResponse.traction_feasibility < 70) {
+    items.push({
+      title: "Quantify traction with concrete metrics",
+      priority: "high",
+      impact: `+${Math.ceil((70 - apiResponse.traction_feasibility) * 0.8)} points on Traction score`,
+      effort: "Medium (2 weeks)",
+      steps: [
+        "Add revenue/user growth data",
+        "Include retention metrics",
+        "Show market validation",
+      ],
+    });
+  }
+
+  if (apiResponse.market_opportunity < 70) {
+    items.push({
+      title: "Strengthen market opportunity analysis",
+      priority: "medium",
+      impact: `+${Math.ceil((70 - apiResponse.market_opportunity) * 0.8)} points on Market score`,
+      effort: "Medium (2 weeks)",
+      steps: [
+        "Add TAM/SAM/SOM breakdown",
+        "Include market research data",
+        "Show competitive landscape",
+      ],
+    });
+  }
+
+  if (apiResponse.risk_sustainability < 70) {
+    items.push({
+      title: "Improve risk analysis and mitigation strategies",
+      priority: "medium",
+      impact: `+${Math.ceil((70 - apiResponse.risk_sustainability) * 0.8)} points on Risk score`,
+      effort: "Medium (2 weeks)",
+      steps: [
+        "Identify key business risks",
+        "Develop mitigation strategies",
+        "Address regulatory concerns",
+      ],
+    });
+  }
+
+  if (apiResponse.scalability < 70) {
+    items.push({
+      title: "Clarify scalability and unit economics",
+      priority: "medium",
+      impact: `+${Math.ceil((70 - apiResponse.scalability) * 0.8)} points on Scalability score`,
+      effort: "High (3-4 weeks)",
+      steps: [
+        "Explain how business scales",
+        "Provide unit economics data",
+        "Show path to profitability",
+      ],
+    });
+  }
+
+  return items;
+}
+
+export function mapApiResponseToAnalysis(
+  apiResponse: AnalyzeResponse,
+  deckId: string,
+): DeckAnalysis {
+  const ideaScore = apiResponse.idea_novelty;
+  const teamScore = apiResponse.team_capability;
+  const marketScore = apiResponse.market_opportunity;
+  const tractionScore = apiResponse.traction_feasibility;
+  const riskScore = apiResponse.risk_sustainability;
+  const scalabilityScore = apiResponse.scalability;
+  const overallScore = apiResponse.overall_score;
+
+  // Extract founders from detailed analysis
+  const founders = apiResponse.detailed_analysis?.facts?.founders || [];
+  const teamMembers = founders.map((founder) => ({
+    name: founder.name,
+    role: "Founder",
+    education: "N/A",
+    experience: [founder.background],
+  }));
+
+  // Map red/green/amber flags
+  const redFlagObjects = apiResponse.red_flags.map((desc) => ({
+    description: desc,
+    mitigation: "Address this concern in your next deck iteration",
+  }));
+
+  const amberFlagObjects = apiResponse.amber_flags.map((desc) => ({
+    description: desc,
+    mitigation: "Monitor this area and provide additional data if available",
+  }));
+
+  const greenFlagObjects = apiResponse.green_flags.map((desc) => ({
+    description: desc,
+    mitigation: "",
+  }));
+
+  // Extract traction metrics
+  const tractionMetrics = apiResponse.traction_metrics || {
+    revenue: "Not disclosed",
+    growth_rate: "Not disclosed",
+    capital_raised: { total_funding: "Not disclosed" },
+    runway: "Not disclosed",
+  };
+
+  // Map improvement suggestions to improvement items
+  const improvementItems = apiResponse.improvement_suggestions.map((sug) => ({
+    title: sug.suggestion,
+    priority: sug.impact as "high" | "medium" | "low",
+    impact: `${sug.impact} impact - ${sug.rationale}`,
+    effort: "To be determined",
+    steps: [sug.rationale],
+  }));
+
+  // Extract facts from detailed analysis
+  const facts = apiResponse.detailed_analysis?.facts;
+  const companyName = facts?.company_name || "Company";
+  const purpose = facts?.purpose || "Not specified";
+  const tagline = facts?.tagline || "";
+  const problem =
+    facts?.problem || apiResponse.market_problem || "Not specified";
+  const solution =
+    facts?.solution || apiResponse.solution_differentiation || "Not specified";
+  const businessModel =
+    facts?.business_model || apiResponse.business_model || "Not specified";
+  const tam = facts?.tam || "Not specified";
+  const sam = facts?.sam || "Not specified";
+  const som = facts?.som || "Not specified";
+
+  // Generate feedback based on scores and actual data
+  function generateContextualFeedback(
+    dimension: string,
+    score: number,
+  ): string {
+    const feedbackMap: Record<string, Record<string, string>> = {
+      idea: {
+        high: `Strong value proposition for ${companyName}. ${solution}`,
+        medium: `Good problem identification. ${problem}. Consider strengthening the solution differentiation.`,
+        low: "Value proposition needs significant strengthening. Clarify how your solution is unique.",
+      },
+      team: {
+        high: `Impressive founding team with ${founders.length} experienced member${founders.length !== 1 ? "s" : ""}. Strong domain expertise demonstrated.`,
+        medium: `Solid team with ${founders.length} founder${founders.length !== 1 ? "s" : ""}. Consider highlighting specific achievements more prominently.`,
+        low: "Team section needs more detail. Add photos, backgrounds, and clear role definitions.",
+      },
+      market: {
+        high: `Large addressable market: TAM: ${tam}, SAM: ${sam}, SOM: ${som}. Strong market opportunity validated.`,
+        medium: `Market opportunity identified: TAM: ${tam}. Strengthen with more credible data sources.`,
+        low: "Market opportunity needs more validation. Add bottom-up analysis and credible sources.",
+      },
+      traction: {
+        high: `Strong traction demonstrated: Revenue: ${tractionMetrics.revenue}, Growth: ${tractionMetrics.growth_rate}`,
+        medium: `Some traction shown: ${tractionMetrics.revenue !== "NULL" ? tractionMetrics.revenue : "Revenue not disclosed"}. Include retention rates and unit economics.`,
+        low: "Limited traction metrics. Add customer data, pilots, or LOIs to strengthen credibility.",
+      },
+      risk: {
+        high: "Key risks well-identified with thoughtful mitigation strategies. Regulatory and IP considerations addressed.",
+        medium: `${apiResponse.red_flags.length} risk${apiResponse.red_flags.length !== 1 ? "s" : ""} identified. Mitigation strategies could be more detailed.`,
+        low: "Risk analysis needs strengthening. Identify key risks and present concrete mitigation strategies.",
+      },
+      scalability: {
+        high: `Business model (${businessModel !== "NULL" && businessModel !== "Not specified" ? businessModel : "as described"}) shows excellent scalability potential.`,
+        medium:
+          "Scalability potential exists but unit economics need more validation. Include 18-36 month projections.",
+        low: "Scalability section needs work. Clarify how the business model scales with growth.",
+      },
+    };
+
+    const level = score >= 70 ? "high" : score >= 50 ? "medium" : "low";
+    return feedbackMap[dimension]?.[level] || "Analysis in progress";
+  }
+
+  return {
+    id: apiResponse.analysis_id,
+    deckId,
+    overallScore,
+    ideaScore,
+    teamScore,
+    marketScore,
+    tractionScore,
+    riskScore,
+    scalabilityScore,
+    feedback: {
+      idea: generateContextualFeedback("idea", ideaScore),
+      team: generateContextualFeedback("team", teamScore),
+      market: generateContextualFeedback("market", marketScore),
+      traction: generateContextualFeedback("traction", tractionScore),
+      risk: generateContextualFeedback("risk", riskScore),
+      scalability: generateContextualFeedback("scalability", scalabilityScore),
+    },
+    feedbackGaps: {
+      idea:
+        solution === "Not specified"
+          ? "Solution differentiation not clearly articulated"
+          : "Solution could be differentiated more clearly against competitors",
+      team:
+        founders.length === 0
+          ? "Team information not provided in the deck"
+          : "Consider adding more team member details, photos, and achievements",
+      market:
+        tam === "Not specified"
+          ? "Market size (TAM/SAM/SOM) not provided — add credible market research"
+          : "Consider adding more credible data sources for market sizing validation",
+      traction:
+        tractionMetrics.revenue === "NULL" ||
+        tractionMetrics.revenue === "Not disclosed"
+          ? "Revenue figures not disclosed — add MRR/ARR data to strengthen investor confidence"
+          : "Add more detailed traction metrics including retention data and cohort analysis",
+      risk:
+        apiResponse.red_flags.length === 0
+          ? "Risk analysis not comprehensive — identify and address key risks"
+          : "Consider addressing IP protection strategy and regulatory compliance risks",
+      scalability:
+        businessModel === "Not specified" || businessModel === "NULL"
+          ? "Business model not clearly defined — explain revenue model and scaling strategy"
+          : "Unit economics need more validation — include projections for 18-36 months",
+    },
+    flags: {
+      idea: getFlag(ideaScore),
+      team: getFlag(teamScore),
+      market: getFlag(marketScore),
+      traction: getFlag(tractionScore),
+      risk: getFlag(riskScore),
+      scalability: getFlag(scalabilityScore),
+    },
+    riskFlags: {
+      red: redFlagObjects,
+      amber: amberFlagObjects,
+      green: greenFlagObjects,
+    },
+    teamMembers:
+      teamMembers.length > 0
+        ? teamMembers
+        : [
+            {
+              name: "Team information",
+              role: "Not provided",
+              education: "N/A",
+              experience: ["Please add team details to your deck"],
+            },
+          ],
+    teamExpertise:
+      founders.length > 0
+        ? founders.map((f) => {
+            const expertise = f.background.split(":")[0]?.trim();
+            return expertise || "Domain expertise";
+          })
+        : ["Team expertise to be added"],
+    teamGaps:
+      teamMembers.length === 0
+        ? ["Complete team information not provided in deck"]
+        : founders.length < 2
+          ? [
+              "Consider adding co-founders with complementary skills",
+              "Add LinkedIn profiles and professional photos",
+            ]
+          : ["Consider adding LinkedIn profiles and professional photos"],
+    tractionMetrics: {
+      revenue:
+        tractionMetrics.revenue !== "NULL" &&
+        tractionMetrics.revenue !== "Not specified"
+          ? tractionMetrics.revenue
+          : "Not disclosed",
+      growthRate:
+        tractionMetrics.growth_rate !== "Not specified"
+          ? tractionMetrics.growth_rate
+          : "Not disclosed",
+      capitalRaised:
+        tractionMetrics.capital_raised?.total_funding || "Not disclosed",
+      revenueStatus: getFlag(tractionScore),
+      growthStatus: getFlag(tractionScore),
+      capitalStatus: getFlag(tractionScore),
+    },
+    tractionIndicators: apiResponse.green_flags.filter(
+      (flag) =>
+        flag.toLowerCase().includes("traction") ||
+        flag.toLowerCase().includes("growth") ||
+        flag.toLowerCase().includes("revenue") ||
+        flag.toLowerCase().includes("customer") ||
+        flag.toLowerCase().includes("arr") ||
+        flag.toLowerCase().includes("mrr"),
+    ),
+    tractionMissing: [
+      ...apiResponse.red_flags.filter(
+        (flag) =>
+          flag.toLowerCase().includes("traction") ||
+          flag.toLowerCase().includes("revenue") ||
+          flag.toLowerCase().includes("customer"),
+      ),
+      ...(tractionMetrics.revenue === "NULL" ||
+      tractionMetrics.revenue === "Not disclosed"
+        ? ["Revenue data not provided"]
+        : []),
+    ],
+    businessModel:
+      businessModel !== "Not specified" &&
+      businessModel !== "NULL" &&
+      businessModel.length > 5
+        ? businessModel
+        : "Business model not clearly defined in the deck. Consider adding a slide explaining revenue streams and customer acquisition strategy.",
+    businessModelTraits:
+      businessModel !== "Not specified" &&
+      businessModel !== "NULL" &&
+      businessModel.length > 5
+        ? [
+            businessModel,
+            "Revenue generation model",
+            "Customer acquisition strategy",
+          ]
+        : [
+            "Business model details needed",
+            "Revenue streams to be clarified",
+            "Customer acquisition strategy to be added",
+          ],
+    marketProblem: problem,
+    marketSolution: solution,
+    improvementItems:
+      improvementItems.length > 0
+        ? improvementItems
+        : generateImprovementItems(apiResponse),
+    improvements:
+      apiResponse.improvement_suggestions.length > 0
+        ? apiResponse.improvement_suggestions.map((s) => s.suggestion)
+        : apiResponse.red_flags.map((flag) => `Address: ${flag}`),
+    strengths:
+      apiResponse.green_flags.length > 0
+        ? apiResponse.green_flags
+        : ["Analysis complete - review detailed scores for insights"],
+    criticalGaps:
+      apiResponse.red_flags.length > 0
+        ? apiResponse.red_flags
+        : apiResponse.amber_flags.length > 0
+          ? apiResponse.amber_flags
+          : ["No critical gaps identified - continue to refine your deck"],
+    quickWins:
+      apiResponse.amber_flags.length > 0
+        ? apiResponse.amber_flags.slice(0, 3)
+        : apiResponse.improvement_suggestions.length > 0
+          ? apiResponse.improvement_suggestions
+              .slice(0, 3)
+              .map((s) => s.suggestion)
+          : ["Review improvement suggestions for quick wins"],
+    nextSteps:
+      apiResponse.improvement_suggestions.length > 0
+        ? apiResponse.improvement_suggestions.slice(0, 5).map((sug) => ({
+            action: sug.suggestion,
+            impact: sug.impact as "high" | "medium" | "low",
+          }))
+        : [
+            {
+              action: "Address identified red flags systematically",
+              impact: "high",
+            },
+            { action: "Strengthen weak scoring areas", impact: "high" },
+            {
+              action: "Enhance documentation for all claims",
+              impact: "medium",
+            },
+          ],
+    percentile: apiResponse.percentile,
+    analyzedAt: new Date(apiResponse.timestamp * 1000).toISOString(),
+  };
+}
+
+// Mock data generation function (for development/testing)
 export function generateMockAnalysis(deckId: string): DeckAnalysis {
-  const baseScore = Math.floor(Math.random() * 30) + 55
-  const ideaScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 8)
-  const teamScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 10)
-  const marketScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 8)
-  const tractionScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 12)
-  const riskScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 10)
-  const scalabilityScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 8)
+  const baseScore = Math.floor(Math.random() * 30) + 55;
+  const ideaScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 8);
+  const teamScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 10);
+  const marketScore = clampScore(
+    baseScore + Math.floor(Math.random() * 20) - 8,
+  );
+  const tractionScore = clampScore(
+    baseScore + Math.floor(Math.random() * 20) - 12,
+  );
+  const riskScore = clampScore(baseScore + Math.floor(Math.random() * 20) - 10);
+  const scalabilityScore = clampScore(
+    baseScore + Math.floor(Math.random() * 20) - 8,
+  );
 
   return {
     id: `analysis_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -78,10 +482,13 @@ export function generateMockAnalysis(deckId: string): DeckAnalysis {
     feedbackGaps: {
       idea: "Solution differentiation could be articulated more clearly against direct competitors.",
       team: "No technical co-founder mentioned — this could be a concern for product-heavy ventures.",
-      market: "TAM/SAM/SOM breakdown needs stronger data sources from credible industry reports.",
-      traction: "Revenue figures not disclosed — add MRR/ARR data to strengthen investor confidence.",
+      market:
+        "TAM/SAM/SOM breakdown needs stronger data sources from credible industry reports.",
+      traction:
+        "Revenue figures not disclosed — add MRR/ARR data to strengthen investor confidence.",
       risk: "IP protection strategy not addressed — consider patents or trade secret protections.",
-      scalability: "Unit economics need more validation — include projections for next 18-36 months.",
+      scalability:
+        "Unit economics need more validation — include projections for next 18-36 months.",
     },
     flags: {
       idea: getFlag(ideaScore),
@@ -93,17 +500,48 @@ export function generateMockAnalysis(deckId: string): DeckAnalysis {
     },
     riskFlags: {
       red: [
-        { description: "Limited traction data — no revenue or customer metrics disclosed", mitigation: "Add a dedicated traction slide with MRR, user growth, and retention metrics" },
-        { description: "High competition from established brands entering the market", mitigation: "Develop clear defensibility moats and first-mover advantage narrative" },
-        { description: "Business model pricing strategy not clearly defined", mitigation: "Add pricing strategy slide with unit economics and LTV/CAC analysis" },
+        {
+          description:
+            "Limited traction data — no revenue or customer metrics disclosed",
+          mitigation:
+            "Add a dedicated traction slide with MRR, user growth, and retention metrics",
+        },
+        {
+          description:
+            "High competition from established brands entering the market",
+          mitigation:
+            "Develop clear defensibility moats and first-mover advantage narrative",
+        },
+        {
+          description: "Business model pricing strategy not clearly defined",
+          mitigation:
+            "Add pricing strategy slide with unit economics and LTV/CAC analysis",
+        },
       ],
       amber: [
-        { description: "Market acceptance uncertainty in target geography", mitigation: "Conduct customer validation surveys and compile testimonial evidence" },
-        { description: "Economic fluctuations may affect consumer discretionary spending", mitigation: "Develop flexible pricing strategy and value-based positioning" },
+        {
+          description: "Market acceptance uncertainty in target geography",
+          mitigation:
+            "Conduct customer validation surveys and compile testimonial evidence",
+        },
+        {
+          description:
+            "Economic fluctuations may affect consumer discretionary spending",
+          mitigation:
+            "Develop flexible pricing strategy and value-based positioning",
+        },
       ],
       green: [
-        { description: "Clear product-market fit signals from organic brand growth", mitigation: "" },
-        { description: "Strong founding team with complementary domain expertise", mitigation: "" },
+        {
+          description:
+            "Clear product-market fit signals from organic brand growth",
+          mitigation: "",
+        },
+        {
+          description:
+            "Strong founding team with complementary domain expertise",
+          mitigation: "",
+        },
       ],
     },
     teamMembers: [
@@ -128,8 +566,16 @@ export function generateMockAnalysis(deckId: string): DeckAnalysis {
         ],
       },
     ],
-    teamExpertise: ["Product strategy & go-to-market", "Machine learning & AI", "Enterprise sales", "Brand building"],
-    teamGaps: ["Team size not fully disclosed", "No dedicated marketing/growth hire mentioned"],
+    teamExpertise: [
+      "Product strategy & go-to-market",
+      "Machine learning & AI",
+      "Enterprise sales",
+      "Brand building",
+    ],
+    teamGaps: [
+      "Team size not fully disclosed",
+      "No dedicated marketing/growth hire mentioned",
+    ],
     tractionMetrics: {
       revenue: "₹12L ARR",
       growthRate: "5x in 2 years",
@@ -148,18 +594,22 @@ export function generateMockAnalysis(deckId: string): DeckAnalysis {
       "Runway information not disclosed",
       "Customer retention rates not shared",
     ],
-    businessModel: "The startup operates on a direct-to-consumer (D2C) model, allowing it to maintain control over branding, customer experience, and unit economics. This model supports rapid growth and direct engagement with the target market.",
+    businessModel:
+      "The startup operates on a direct-to-consumer (D2C) model, allowing it to maintain control over branding, customer experience, and unit economics. This model supports rapid growth and direct engagement with the target market.",
     businessModelTraits: [
       "Direct customer relationships",
       "Brand control and premium positioning",
       "Higher margins vs. retail distribution",
       "Data-driven customer insights",
     ],
-    marketProblem: "The target market is significantly underserved, with growing demand for high-quality, accessible solutions. Consumers face limited options and structural barriers that hinder adoption and purchasing.",
-    marketSolution: "The startup offers a differentiated product that has gained significant organic traction through quality and education-first approach, resulting in 5x brand search volume growth over two years.",
+    marketProblem:
+      "The target market is significantly underserved, with growing demand for high-quality, accessible solutions. Consumers face limited options and structural barriers that hinder adoption and purchasing.",
+    marketSolution:
+      "The startup offers a differentiated product that has gained significant organic traction through quality and education-first approach, resulting in 5x brand search volume growth over two years.",
     improvementItems: [
       {
-        title: "Quantify traction with revenue metrics and pilot conversion data",
+        title:
+          "Quantify traction with revenue metrics and pilot conversion data",
         priority: "high",
         impact: "+15-20 points on Traction score",
         effort: "Medium (2-3 weeks)",
@@ -233,7 +683,7 @@ export function generateMockAnalysis(deckId: string): DeckAnalysis {
     ],
     percentile: Math.floor(Math.random() * 40) + 35,
     analyzedAt: new Date().toISOString(),
-  }
+  };
 }
 
 export function createDemoUser(): UserProfile {
@@ -247,7 +697,7 @@ export function createDemoUser(): UserProfile {
     location: "Bangalore",
     description: "AI-powered analytics for SaaS companies",
     createdAt: new Date().toISOString(),
-  }
+  };
 }
 
 export const SAMPLE_DECKS: Deck[] = [
@@ -275,7 +725,7 @@ export const SAMPLE_DECKS: Deck[] = [
     uploadDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
     status: "completed",
   },
-]
+];
 
 const sharedNewFields = {
   feedbackGaps: {
@@ -288,11 +738,20 @@ const sharedNewFields = {
   },
   riskFlags: {
     red: [
-      { description: "Limited revenue metrics disclosed", mitigation: "Add MRR/ARR slide with growth trajectory" },
-      { description: "Competitive threat from incumbents", mitigation: "Develop clear defensibility narrative" },
+      {
+        description: "Limited revenue metrics disclosed",
+        mitigation: "Add MRR/ARR slide with growth trajectory",
+      },
+      {
+        description: "Competitive threat from incumbents",
+        mitigation: "Develop clear defensibility narrative",
+      },
     ],
     amber: [
-      { description: "Market timing uncertainty", mitigation: "Provide market validation evidence" },
+      {
+        description: "Market timing uncertainty",
+        mitigation: "Provide market validation evidence",
+      },
     ],
     green: [
       { description: "Strong organic growth signals", mitigation: "" },
@@ -300,24 +759,85 @@ const sharedNewFields = {
     ],
   },
   teamMembers: [
-    { name: "Alex Chen", role: "Co-Founder & CEO", education: "MBA, Stanford", experience: ["VP of Product at Series C startup", "10+ years enterprise SaaS"] },
-    { name: "Priya Sharma", role: "Co-Founder & CTO", education: "M.S. CS, IIT Delhi", experience: ["Senior Engineer at Google", "ML researcher"] },
+    {
+      name: "Alex Chen",
+      role: "Co-Founder & CEO",
+      education: "MBA, Stanford",
+      experience: [
+        "VP of Product at Series C startup",
+        "10+ years enterprise SaaS",
+      ],
+    },
+    {
+      name: "Priya Sharma",
+      role: "Co-Founder & CTO",
+      education: "M.S. CS, IIT Delhi",
+      experience: ["Senior Engineer at Google", "ML researcher"],
+    },
   ],
-  teamExpertise: ["Product strategy", "Machine learning & AI", "Enterprise sales"],
+  teamExpertise: [
+    "Product strategy",
+    "Machine learning & AI",
+    "Enterprise sales",
+  ],
   teamGaps: ["Team size not disclosed", "No dedicated growth hire"],
-  tractionMetrics: { revenue: "₹12L ARR", growthRate: "5x in 2 yrs", capitalRaised: "$500K", revenueStatus: "amber" as const, growthStatus: "green" as const, capitalStatus: "green" as const },
-  tractionIndicators: ["5x brand search volume growth", "Strong organic traction", "Award-winning products"],
-  tractionMissing: ["Revenue breakdown not provided", "Runway not disclosed", "Retention rates not shared"],
-  businessModel: "Direct-to-consumer model with strong brand control, higher margins, and direct customer relationships.",
-  businessModelTraits: ["Direct customer relationships", "Brand control", "Higher margins vs. retail"],
-  marketProblem: "Target market is underserved with growing demand and structural barriers to adoption.",
-  marketSolution: "Differentiated product with organic traction and education-first approach driving 5x growth.",
-  improvementItems: [
-    { title: "Quantify traction with revenue data", priority: "high" as const, impact: "+15-20 pts", effort: "Medium (2-3 weeks)", steps: ["Add MRR/ARR slide", "Include CAC/LTV metrics", "Show conversion funnel"] },
-    { title: "Clarify pricing strategy", priority: "high" as const, impact: "+10-15 pts", effort: "Low (1 week)", steps: ["Add pricing slide", "Explain unit economics", "Show LTV/CAC"] },
-    { title: "Strengthen competitive analysis", priority: "medium" as const, impact: "+8-12 pts", effort: "Medium (2 weeks)", steps: ["Create positioning matrix", "Identify moats"] },
+  tractionMetrics: {
+    revenue: "₹12L ARR",
+    growthRate: "5x in 2 yrs",
+    capitalRaised: "$500K",
+    revenueStatus: "amber" as const,
+    growthStatus: "green" as const,
+    capitalStatus: "green" as const,
+  },
+  tractionIndicators: [
+    "5x brand search volume growth",
+    "Strong organic traction",
+    "Award-winning products",
   ],
-}
+  tractionMissing: [
+    "Revenue breakdown not provided",
+    "Runway not disclosed",
+    "Retention rates not shared",
+  ],
+  businessModel:
+    "Direct-to-consumer model with strong brand control, higher margins, and direct customer relationships.",
+  businessModelTraits: [
+    "Direct customer relationships",
+    "Brand control",
+    "Higher margins vs. retail",
+  ],
+  marketProblem:
+    "Target market is underserved with growing demand and structural barriers to adoption.",
+  marketSolution:
+    "Differentiated product with organic traction and education-first approach driving 5x growth.",
+  improvementItems: [
+    {
+      title: "Quantify traction with revenue data",
+      priority: "high" as const,
+      impact: "+15-20 pts",
+      effort: "Medium (2-3 weeks)",
+      steps: [
+        "Add MRR/ARR slide",
+        "Include CAC/LTV metrics",
+        "Show conversion funnel",
+      ],
+    },
+    {
+      title: "Clarify pricing strategy",
+      priority: "high" as const,
+      impact: "+10-15 pts",
+      effort: "Low (1 week)",
+      steps: ["Add pricing slide", "Explain unit economics", "Show LTV/CAC"],
+    },
+    {
+      title: "Strengthen competitive analysis",
+      priority: "medium" as const,
+      impact: "+8-12 pts",
+      effort: "Medium (2 weeks)",
+      steps: ["Create positioning matrix", "Identify moats"],
+    },
+  ],
+};
 
 export const SAMPLE_ANALYSES: DeckAnalysis[] = [
   {
@@ -333,12 +853,22 @@ export const SAMPLE_ANALYSES: DeckAnalysis[] = [
     feedback: {
       idea: "Strong value proposition with clear differentiation in the AI/ML space. The problem statement resonates well with enterprise customers.",
       team: "Founding team has relevant experience, but consider adding a CTO with deeper technical expertise in machine learning.",
-      market: "Large addressable market with clear growth trajectory. TAM/SAM/SOM breakdown is convincing.",
-      traction: "Early customer adoption is promising, but need more concrete revenue figures and retention metrics.",
+      market:
+        "Large addressable market with clear growth trajectory. TAM/SAM/SOM breakdown is convincing.",
+      traction:
+        "Early customer adoption is promising, but need more concrete revenue figures and retention metrics.",
       risk: "Key risks identified but mitigation strategies could be more detailed. Consider addressing IP protection.",
-      scalability: "Business model shows good scalability potential. Unit economics need more validation.",
+      scalability:
+        "Business model shows good scalability potential. Unit economics need more validation.",
     },
-    flags: { idea: "green", team: "amber", market: "green", traction: "amber", risk: "amber", scalability: "green" },
+    flags: {
+      idea: "green",
+      team: "amber",
+      market: "green",
+      traction: "amber",
+      risk: "amber",
+      scalability: "green",
+    },
     ...sharedNewFields,
     improvements: [
       "Add detailed financial projections for next 3 years",
@@ -385,11 +915,20 @@ export const SAMPLE_ANALYSES: DeckAnalysis[] = [
       idea: "Good problem identification but solution could be explained more clearly. Consider adding more concrete examples.",
       team: "Solid team composition but could benefit from highlighting specific achievements more prominently.",
       market: "Market sizing is reasonable but needs stronger data sources.",
-      traction: "Some traction demonstrated but metrics could be more comprehensive.",
+      traction:
+        "Some traction demonstrated but metrics could be more comprehensive.",
       risk: "Risk section covers main concerns but mitigation strategies could be more detailed.",
-      scalability: "Scalability potential exists but unit economics need more validation.",
+      scalability:
+        "Scalability potential exists but unit economics need more validation.",
     },
-    flags: { idea: "green", team: "amber", market: "amber", traction: "amber", risk: "amber", scalability: "amber" },
+    flags: {
+      idea: "green",
+      team: "amber",
+      market: "amber",
+      traction: "amber",
+      risk: "amber",
+      scalability: "amber",
+    },
     ...sharedNewFields,
     improvements: [
       "Strengthen problem statement with more data",
@@ -434,12 +973,22 @@ export const SAMPLE_ANALYSES: DeckAnalysis[] = [
     feedback: {
       idea: "Value proposition needs strengthening. The pitch should more clearly articulate why this solution is better than alternatives.",
       team: "Team section needs more detail. Consider adding photos, detailed backgrounds, and clear role definitions.",
-      market: "Market opportunity section needs improvement. Add bottom-up analysis.",
-      traction: "Limited traction metrics presented. Add any customer data, pilots, or LOIs.",
+      market:
+        "Market opportunity section needs improvement. Add bottom-up analysis.",
+      traction:
+        "Limited traction metrics presented. Add any customer data, pilots, or LOIs.",
       risk: "Risk analysis needs strengthening. Identify key risks and present concrete mitigation strategies.",
-      scalability: "Scalability section needs more work. Clarify how the business model scales.",
+      scalability:
+        "Scalability section needs more work. Clarify how the business model scales.",
     },
-    flags: { idea: "amber", team: "amber", market: "amber", traction: "red", risk: "amber", scalability: "amber" },
+    flags: {
+      idea: "amber",
+      team: "amber",
+      market: "amber",
+      traction: "red",
+      risk: "amber",
+      scalability: "amber",
+    },
     ...sharedNewFields,
     improvements: [
       "Completely revamp the problem-solution section",
@@ -471,13 +1020,13 @@ export const SAMPLE_ANALYSES: DeckAnalysis[] = [
     percentile: 38,
     analyzedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
   },
-]
+];
 
 export function seedDemoData() {
-  const { StorageService } = require("./storage")
-  const user = createDemoUser()
-  StorageService.saveUser(user)
-  StorageService.savePassword("demo@startup.com", "password123")
-  StorageService.saveDecks(SAMPLE_DECKS)
-  SAMPLE_ANALYSES.forEach((a: DeckAnalysis) => StorageService.saveAnalysis(a))
+  const { StorageService } = require("./storage");
+  const user = createDemoUser();
+  StorageService.saveUser(user);
+  StorageService.savePassword("demo@startup.com", "password123");
+  StorageService.saveDecks(SAMPLE_DECKS);
+  SAMPLE_ANALYSES.forEach((a: DeckAnalysis) => StorageService.saveAnalysis(a));
 }
