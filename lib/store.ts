@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { UserProfile, SignupData, Deck, DeckAnalysis } from "./types"
+import type { UserProfile, SignupData, Deck, DeckAnalysis, InvestmentReadinessData, ValuationData } from "./types"
 import { StorageService } from "./storage"
 import { createDemoUser, SAMPLE_DECKS, SAMPLE_ANALYSES } from "./mock-data"
 
@@ -143,5 +143,65 @@ export const useDecksStore = create<DecksState>()((set, get) => ({
 
   getAnalysisForDeck: (deckId: string) => {
     return get().analyses.find((a) => a.deckId === deckId)
+  },
+}))
+
+/* ─────────────── Investment Readiness Store ─────────────── */
+
+interface ReadinessState {
+  readinessResults: InvestmentReadinessData[]
+  loadFromStorage: () => void
+  addReadiness: (data: InvestmentReadinessData) => void
+  getLatestReadiness: () => InvestmentReadinessData | undefined
+}
+
+export const useReadinessStore = create<ReadinessState>()((set, get) => ({
+  readinessResults: [],
+
+  loadFromStorage: () => {
+    set({ readinessResults: StorageService.loadAllReadiness() })
+  },
+
+  addReadiness: (data: InvestmentReadinessData) => {
+    StorageService.saveReadinessData(data)
+    set({ readinessResults: StorageService.loadAllReadiness() })
+  },
+
+  getLatestReadiness: () => {
+    const results = get().readinessResults
+    if (results.length === 0) return undefined
+    return [...results].sort(
+      (a, b) => new Date(b.calculatedAt).getTime() - new Date(a.calculatedAt).getTime()
+    )[0]
+  },
+}))
+
+/* ─────────────── Valuation Store ─────────────── */
+
+interface ValuationState {
+  valuationResults: ValuationData[]
+  loadFromStorage: () => void
+  addValuation: (data: ValuationData) => void
+  getLatestValuation: () => ValuationData | undefined
+}
+
+export const useValuationStore = create<ValuationState>()((set, get) => ({
+  valuationResults: [],
+
+  loadFromStorage: () => {
+    set({ valuationResults: StorageService.loadAllValuations() })
+  },
+
+  addValuation: (data: ValuationData) => {
+    StorageService.saveValuationData(data)
+    set({ valuationResults: StorageService.loadAllValuations() })
+  },
+
+  getLatestValuation: () => {
+    const results = get().valuationResults
+    if (results.length === 0) return undefined
+    return [...results].sort(
+      (a, b) => new Date(b.calculatedAt).getTime() - new Date(a.calculatedAt).getTime()
+    )[0]
   },
 }))

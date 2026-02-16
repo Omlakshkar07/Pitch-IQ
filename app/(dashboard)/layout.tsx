@@ -6,20 +6,24 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
-import { useAuthStore, useDecksStore } from "@/lib/store"
+import { useAuthStore, useDecksStore, useReadinessStore, useValuationStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { isAuthenticated } = useAuthStore()
-  const loadFromStorage = useDecksStore((s) => s.loadFromStorage)
+  const loadDecks = useDecksStore((s) => s.loadFromStorage)
+  const loadReadiness = useReadinessStore((s) => s.loadFromStorage)
+  const loadValuations = useValuationStore((s) => s.loadFromStorage)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    loadFromStorage()
-  }, [loadFromStorage])
+    loadDecks()
+    loadReadiness()
+    loadValuations()
+  }, [loadDecks, loadReadiness, loadValuations])
 
   useEffect(() => {
     if (mounted && !isAuthenticated) {

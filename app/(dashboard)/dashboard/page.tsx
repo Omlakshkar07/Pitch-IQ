@@ -12,11 +12,12 @@ import {
   GitCompare,
   ArrowUpRight,
   Gauge,
+  IndianRupee,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useAuthStore, useDecksStore } from "@/lib/store"
+import { useAuthStore, useDecksStore, useReadinessStore } from "@/lib/store"
 import {
   LineChart,
   Line,
@@ -30,6 +31,7 @@ import {
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
   const { decks, analyses } = useDecksStore()
+  const latestReadiness = useReadinessStore((s) => s.getLatestReadiness())
 
   const completedDecks = decks.filter((d) => d.status === "completed")
   const latestDeck = completedDecks.sort(
@@ -114,18 +116,24 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Readiness Score</p>
+                <p className="text-sm text-muted-foreground">
+                  {latestReadiness ? "Investment Readiness" : "Readiness Score"}
+                </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {latestAnalysis?.overallScore || 0}
+                  {latestReadiness?.overallScore ?? latestAnalysis?.overallScore ?? 0}
                   <span className="text-base font-normal text-muted-foreground">/100</span>
                 </p>
-                {scoreDelta !== 0 && (
+                {latestReadiness ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {latestReadiness.readinessLevel}
+                  </p>
+                ) : scoreDelta !== 0 ? (
                   <p className={`mt-1 flex items-center text-xs ${scoreDelta > 0 ? "text-primary" : "text-destructive"}`}>
                     <TrendingUp className={`mr-1 h-3 w-3 ${scoreDelta < 0 ? "rotate-180" : ""}`} />
                     {scoreDelta > 0 ? "+" : ""}
                     {scoreDelta} from last deck
                   </p>
-                )}
+                ) : null}
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Gauge className="h-5 w-5 text-primary" />
@@ -273,7 +281,7 @@ export default function DashboardPage() {
       )}
 
       {/* Quick actions */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
         <Link href="/upload" className="group">
           <Card className="border-white/10 bg-black/20 backdrop-blur-md rounded-2xl shadow-xl transition-all hover:bg-black/30 hover:shadow-2xl hover:scale-[1.02]">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
@@ -292,6 +300,28 @@ export default function DashboardPage() {
                 <List className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="font-semibold text-foreground">View All Analyses</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/investment-readiness" className="group">
+          <Card className="border-white/10 bg-black/20 backdrop-blur-md rounded-2xl shadow-xl transition-all hover:bg-black/30 hover:shadow-2xl hover:scale-[1.02]">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <TrendingUp className="h-6 w-6 text-primary" />
+              </div>
+              <p className="font-semibold text-foreground">Investment Readiness</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/valuation" className="group">
+          <Card className="border-white/10 bg-black/20 backdrop-blur-md rounded-2xl shadow-xl transition-all hover:bg-black/30 hover:shadow-2xl hover:scale-[1.02]">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <IndianRupee className="h-6 w-6 text-primary" />
+              </div>
+              <p className="font-semibold text-foreground">Valuation Estimate</p>
             </CardContent>
           </Card>
         </Link>

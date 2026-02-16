@@ -10,6 +10,8 @@ import {
   LogOut,
   BarChart3,
   GitCompare,
+  TrendingUp,
+  IndianRupee,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/lib/store"
@@ -19,6 +21,8 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/upload", icon: Upload, label: "Upload Deck" },
   { href: "/analyses", icon: FileText, label: "My Analyses" },
+  { href: "/investment-readiness", icon: TrendingUp, label: "Investment Readiness" },
+  { href: "/valuation", icon: IndianRupee, label: "Valuation" },
   { href: "/compare", icon: GitCompare, label: "Compare" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ]

@@ -140,6 +140,49 @@ export interface ReadinessScore {
   calculatedAt: string
 }
 
+export interface InvestmentReadinessData {
+  id: string
+  analysisId?: string
+  overallScore: number
+  readinessLevel: "Ready" | "Nearly Ready" | "Not Ready"
+  componentScores: {
+    pitchDeckQuality: number
+    tractionMetrics: number
+    teamStrength: number
+    marketTiming: number
+    financialHealth: number
+  }
+  keyImprovements: string[]
+  nextSteps: string[]
+  estimatedTimeToReady: string
+  calculatedAt: string
+}
+
+export interface ValuationData {
+  id: string
+  sector: string
+  stage: string
+  valuationBand: {
+    low: number
+    median: number
+    high: number
+    currency: string
+  }
+  confidenceLevel: "High" | "Medium" | "Low"
+  methodology: string
+  revenueMultiple: number
+  comparableCompanies: Array<{
+    name: string
+    valuation: string
+    stage: string
+    sector: string
+  }>
+  keyFactors: string[]
+  valuationTips: string[]
+  disclaimer: string
+  calculatedAt: string
+}
+
 export interface SignupData {
   name: string
   email: string

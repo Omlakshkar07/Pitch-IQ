@@ -1,4 +1,4 @@
-import type { UserProfile, Deck, DeckAnalysis } from "./types"
+import type { UserProfile, Deck, DeckAnalysis, InvestmentReadinessData, ValuationData } from "./types"
 
 const PREFIX = "pitchanalyzer_"
 
@@ -102,11 +102,59 @@ export const StorageService = {
     return analyses.find((a) => a.deckId === deckId) || null
   },
 
+  saveReadinessData(data: InvestmentReadinessData): void {
+    const all = this.loadAllReadiness()
+    const index = all.findIndex((r) => r.id === data.id)
+    if (index >= 0) {
+      all[index] = data
+    } else {
+      all.push(data)
+    }
+    save("readiness", all)
+  },
+
+  loadAllReadiness(): InvestmentReadinessData[] {
+    return load<InvestmentReadinessData[]>("readiness") || []
+  },
+
+  getLatestReadiness(): InvestmentReadinessData | null {
+    const all = this.loadAllReadiness()
+    if (all.length === 0) return null
+    return all.sort(
+      (a, b) => new Date(b.calculatedAt).getTime() - new Date(a.calculatedAt).getTime()
+    )[0]
+  },
+
+  saveValuationData(data: ValuationData): void {
+    const all = this.loadAllValuations()
+    const index = all.findIndex((v) => v.id === data.id)
+    if (index >= 0) {
+      all[index] = data
+    } else {
+      all.push(data)
+    }
+    save("valuations", all)
+  },
+
+  loadAllValuations(): ValuationData[] {
+    return load<ValuationData[]>("valuations") || []
+  },
+
+  getLatestValuation(): ValuationData | null {
+    const all = this.loadAllValuations()
+    if (all.length === 0) return null
+    return all.sort(
+      (a, b) => new Date(b.calculatedAt).getTime() - new Date(a.calculatedAt).getTime()
+    )[0]
+  },
+
   exportAllData(): string {
     const data = {
       user: this.loadUser(),
       decks: this.loadDecks(),
       analyses: this.loadAnalyses(),
+      readiness: this.loadAllReadiness(),
+      valuations: this.loadAllValuations(),
     }
     return JSON.stringify(data, null, 2)
   },

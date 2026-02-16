@@ -823,6 +823,15 @@ export default function AnalysisPage() {
               <Eye className="h-4 w-4" />
               Compare to Benchmarks
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => router.push(`/investment-readiness?analysis_id=${analysis.id}`)}
+            >
+              <TrendingUp className="h-4 w-4" />
+              Check Investment Readiness
+            </Button>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
