@@ -1,0 +1,1016 @@
+# PitchIQ — Production-Ready Database Architecture Plan
+
+> **Analyst**: Principal Database Architect Review  
+> **Date**: 2026-03-02  
+> **Codebase**: `d:\IITD` (Next.js 14 + TypeScript + Firebase Auth)  
+> **Scope**: Full analysis of PRD intent + all lib, route, and type files
+
+---
+
+## 1. Executive Summary
+
+PitchIQ is an AI-powered **pitch deck analysis SaaS** targeting Indian early-stage startup founders. Users upload PDF/PPT pitch decks, receive a multi-dimensional AI analysis (scored across 6 axes), and can further compute Investment Readiness scores and Valuation Benchmarks — each powered by a Python backend via REST API.
+
+**The critical finding**: The entire current persistence layer is **localStorage only**. There is no server-side database. This is a demo-grade implementation that is functionally incompatible with the PRD's stated goals of multi-session access, team collaboration, and analytics at scale.
+
+**Recommended architecture**: A **hybrid** of:
+- **PostgreSQL (via Supabase or Neon)** as the primary relational store — handles all structured entities
+- **Firebase Authentication** — already integrated, continue using it as the auth layer
+- **Redis (Upstash)** — caches analysis results and rate-limits API calls
+- **Cloudflare R2 / AWS S3** — stores uploaded pitch deck files (PDFs/PPTs), never in the DB
+- **Firebase Firestore** (optional, secondary) — for real-time UI features (status polling during analysis)
+
+The schema is designed for a **single-tenant multi-user SaaS** model with a B2C founder audience, targeting India-first (INR as primary currency), with a scale ceiling of ~50K users and ~500K analyses in year 1.
+
+---
+
+## 2. Technology Recommendation
+
+### Primary Database: PostgreSQL
+**Justification**:
+- All entities have strong relational structures (User → Decks → Analyses → ReadinessScores → Valuations)
+- Analysis results contain structured numeric scores, flag colors (enum), and nested objects that map cleanly to JSONB columns
+- Full-text search on `filename` and analysis feedback is available via `pg_trgm`
+- `JSONB` handles the semi-structured evidence/facts/flags sub-objects without schema overhead
+- PostgreSQL has excellent support for time-series queries (score progression over time)
+- Supabase provides instant REST + Realtime on top of Postgres — ideal for this Next.js stack
+
+**Hosting**: Supabase (preferred) or Neon for serverless Postgres. Both support pgvector if future AI-similarity features are added.
+
+### Secondary: Firebase Auth
+Already integrated in [lib/firebase.ts](file:///d:/IITD/lib/firebase.ts). Keep as-is — it handles Google OAuth and email/password auth. Sync the `uid` from Firebase into the `users` table as the primary key to avoid dual identity systems.
+
+### Caching Layer: Redis (Upstash)
+- Cache `analysis_id → DeckAnalysis` JSON (TTL: 24h) — analysis results are immutable once computed
+- Cache `user_id → latest_readiness` and `user_id → latest_valuation` (TTL: 1h)
+- Rate-limit the AI API calls per user per day (10 analyses/day on free tier)
+
+### File Storage: Cloudflare R2 or AWS S3
+- Store raw PDF/PPT files with path pattern: `uploads/{user_id}/{deck_id}/{filename}`
+- Store only the `storage_url` in PostgreSQL
+- **Never** store binary file data in the database (`fileData?: string` in the current [Deck](file:///d:/IITD/lib/types.ts#16-38) type is an anti-pattern — remove it)
+- Max file size: 50MB (enforced in upload page)
+
+### Optional: Firestore (Real-time Status)
+Use Firestore document `analyses/{deck_id}/status` to push real-time analysis progress updates to the frontend. This avoids polling the REST API. The document is deleted once the analysis is complete and the result is stored in PostgreSQL.
+
+---
+
+## 3. Entity & Relationship Map
+
+### Entities
+
+| Entity | Purpose |
+|---|---|
+| `users` | Authenticated user account, synced from Firebase Auth |
+| `startup_profiles` | Startup metadata filled in during onboarding (1:1 with user) |
+| `decks` | Uploaded pitch deck metadata and file reference |
+| `deck_analyses` | AI-generated analysis result for a deck |
+| `investment_readiness_results` | Investment readiness assessment results |
+| `valuation_results` | Valuation benchmark results |
+| `audit_log` | Immutable log of all significant user actions |
+
+### Relationships
+
+- `users` 1:1 `startup_profiles` (user completes onboarding once, can update)
+- `users` 1:N `decks` (one user uploads many decks)
+- `decks` 1:1 `deck_analyses` (each deck has at most one analysis)
+- `deck_analyses` 1:N `investment_readiness_results` (an analysis can be linked to multiple readiness checks)
+- `users` 1:N `investment_readiness_results` (user runs readiness independently too)
+- `users` 1:N `valuation_results`
+- All entities log to `audit_log`
+
+### ER Diagram
+
+```mermaid
+erDiagram
+    users {
+        uuid id PK
+        string firebase_uid UK
+        string email UK
+        string name
+        boolean has_completed_onboarding
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    startup_profiles {
+        uuid id PK
+        uuid user_id FK
+        string startup_name
+        string description
+        string sector
+        string stage
+        string location
+        int team_size
+        string website
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    decks {
+        uuid id PK
+        uuid user_id FK
+        string filename
+        bigint file_size_bytes
+        string storage_url
+        string mime_type
+        string status
+        string sector
+        string stage
+        numeric revenue_inr
+        int team_size
+        int founding_year
+        string location
+        string incorporation_status
+        string fundraising_status
+        boolean fund_raised
+        string founder_name
+        string founder_email
+        string founder_phone
+        string analysis_mode
+        timestamp uploaded_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    deck_analyses {
+        uuid id PK
+        uuid deck_id FK
+        string external_analysis_id UK
+        int overall_score
+        int idea_score
+        int team_score
+        int market_score
+        int traction_score
+        int risk_score
+        int scalability_score
+        jsonb feedback
+        jsonb feedback_gaps
+        jsonb flags
+        jsonb risk_flags
+        jsonb team_members
+        text[] team_expertise
+        text[] team_gaps
+        jsonb traction_metrics
+        text[] traction_indicators
+        text[] traction_missing
+        text business_model
+        text[] business_model_traits
+        text market_problem
+        text market_solution
+        jsonb improvement_items
+        text[] improvements
+        text[] strengths
+        text[] critical_gaps
+        text[] quick_wins
+        jsonb next_steps
+        int percentile
+        timestamp analyzed_at
+        timestamp created_at
+    }
+
+    investment_readiness_results {
+        uuid id PK
+        uuid user_id FK
+        uuid analysis_id FK
+        int overall_score
+        string readiness_level
+        int pitch_deck_quality_score
+        int traction_metrics_score
+        int team_strength_score
+        int market_timing_score
+        int financial_health_score
+        text[] key_improvements
+        text[] next_steps
+        string estimated_time_to_ready
+        numeric monthly_revenue_inr
+        numeric arr_inr
+        int customer_count
+        numeric revenue_growth_rate_pct
+        int team_size
+        int runway_months
+        numeric burn_rate_inr
+        string sector
+        string stage
+        boolean has_lead_investor
+        timestamp calculated_at
+    }
+
+    valuation_results {
+        uuid id PK
+        uuid user_id FK
+        string sector
+        string stage
+        numeric valuation_low_cr
+        numeric valuation_median_cr
+        numeric valuation_high_cr
+        string currency
+        string confidence_level
+        string methodology
+        numeric revenue_multiple
+        jsonb comparable_companies
+        text[] key_factors
+        text[] valuation_tips
+        text disclaimer
+        numeric revenue_inr
+        numeric arr_inr
+        numeric mrr_inr
+        numeric revenue_growth_rate_pct
+        int customer_count
+        numeric customer_growth_rate_pct
+        numeric burn_rate_inr
+        int runway_months
+        int team_size
+        numeric gross_margin_pct
+        timestamp calculated_at
+    }
+
+    audit_log {
+        bigserial id PK
+        uuid user_id FK
+        string action
+        string entity_type
+        uuid entity_id
+        jsonb metadata
+        string ip_address
+        string user_agent
+        timestamp created_at
+    }
+
+    users ||--|| startup_profiles : "has"
+    users ||--o{ decks : "uploads"
+    decks ||--o| deck_analyses : "has"
+    deck_analyses ||--o{ investment_readiness_results : "linked to"
+    users ||--o{ investment_readiness_results : "generates"
+    users ||--o{ valuation_results : "generates"
+    users ||--o{ audit_log : "produces"
+```
+
+---
+
+## 4. Complete Schema Definition
+
+```sql
+-- ============================================================
+-- EXTENSIONS
+-- ============================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";  -- for full-text LIKE search on filenames
+
+-- ============================================================
+-- ENUMS
+-- ============================================================
+CREATE TYPE deck_status AS ENUM ('pending', 'analyzing', 'completed', 'failed');
+CREATE TYPE flag_color AS ENUM ('red', 'amber', 'green');
+CREATE TYPE readiness_level AS ENUM ('Ready', 'Nearly Ready', 'Not Ready');
+CREATE TYPE confidence_level AS ENUM ('High', 'Medium', 'Low');
+CREATE TYPE improvement_priority AS ENUM ('high', 'medium', 'low');
+CREATE TYPE next_step_impact AS ENUM ('high', 'medium', 'low');
+
+-- ============================================================
+-- USERS
+-- ============================================================
+CREATE TABLE users (
+    id                       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    firebase_uid             TEXT NOT NULL UNIQUE,
+    email                    TEXT NOT NULL UNIQUE,
+    name                     TEXT NOT NULL,
+    has_completed_onboarding BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at               TIMESTAMPTZ          -- soft delete
+);
+
+-- ============================================================
+-- STARTUP PROFILES (1:1 with users, created at onboarding)
+-- ============================================================
+CREATE TABLE startup_profiles (
+    id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    startup_name TEXT NOT NULL CHECK (char_length(startup_name) <= 200),
+    description  TEXT          CHECK (char_length(description) <= 500),
+    sector       TEXT NOT NULL,
+    stage        TEXT NOT NULL,
+    location     TEXT NOT NULL,
+    team_size    INT           CHECK (team_size > 0 AND team_size < 100000),
+    website      TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id)          -- enforces 1:1
+);
+
+-- ============================================================
+-- DECKS
+-- ============================================================
+CREATE TABLE decks (
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id               UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    filename              TEXT NOT NULL,
+    file_size_bytes       BIGINT NOT NULL CHECK (file_size_bytes > 0 AND file_size_bytes <= 52428800), -- 50MB
+    storage_url           TEXT NOT NULL,   -- S3/R2 object key
+    mime_type             TEXT NOT NULL CHECK (mime_type IN (
+                              'application/pdf',
+                              'application/vnd.ms-powerpoint',
+                              'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                          )),
+    status                deck_status NOT NULL DEFAULT 'pending',
+    -- Startup metadata at time of upload (snapshot; user profile may change)
+    sector                TEXT,
+    stage                 TEXT,
+    revenue_inr           NUMERIC(18,2),
+    team_size             INT CHECK (team_size > 0),
+    founding_year         SMALLINT CHECK (founding_year >= 1900 AND founding_year <= EXTRACT(YEAR FROM NOW())),
+    location              TEXT,
+    incorporation_status  TEXT,
+    fundraising_status    TEXT,
+    fund_raised           BOOLEAN NOT NULL DEFAULT FALSE,
+    founder_name          TEXT,
+    founder_email         TEXT,
+    founder_phone         TEXT,
+    analysis_mode         TEXT,
+    uploaded_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at            TIMESTAMPTZ          -- soft delete; preserves analysis linkage
+);
+
+-- ============================================================
+-- DECK ANALYSES (immutable once created)
+-- ============================================================
+CREATE TABLE deck_analyses (
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    deck_id               UUID NOT NULL REFERENCES decks(id) ON DELETE RESTRICT,
+    -- Restrict delete: cannot delete a deck that has an analysis without deleting analysis first
+    external_analysis_id  TEXT UNIQUE,       -- analysis_id returned by AI backend
+    overall_score         SMALLINT NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
+    idea_score            SMALLINT NOT NULL CHECK (idea_score BETWEEN 0 AND 100),
+    team_score            SMALLINT NOT NULL CHECK (team_score BETWEEN 0 AND 100),
+    market_score          SMALLINT NOT NULL CHECK (market_score BETWEEN 0 AND 100),
+    traction_score        SMALLINT NOT NULL CHECK (traction_score BETWEEN 0 AND 100),
+    risk_score            SMALLINT NOT NULL CHECK (risk_score BETWEEN 0 AND 100),
+    scalability_score     SMALLINT NOT NULL CHECK (scalability_score BETWEEN 0 AND 100),
+    percentile            SMALLINT          CHECK (percentile BETWEEN 0 AND 100),
+    -- Narrative & structured output stored as JSONB (semi-structured, varies by analysis)
+    feedback              JSONB NOT NULL DEFAULT '{}',
+    -- e.g. {"idea":"...", "team":"...", "market":"...", "traction":"...", "risk":"...", "scalability":"..."}
+    feedback_gaps         JSONB NOT NULL DEFAULT '{}',
+    flags                 JSONB NOT NULL DEFAULT '{}',
+    -- e.g. {"idea":"green","team":"amber","market":"red",...}
+    risk_flags            JSONB NOT NULL DEFAULT '{}',
+    -- e.g. {"red":[{"description":"...","mitigation":"..."}], "amber":[...], "green":[...]}
+    team_members          JSONB NOT NULL DEFAULT '[]',
+    -- e.g. [{"name":"...","role":"...","education":"...","experience":["..."]}]
+    team_expertise        TEXT[] NOT NULL DEFAULT '{}',
+    team_gaps             TEXT[] NOT NULL DEFAULT '{}',
+    traction_metrics      JSONB NOT NULL DEFAULT '{}',
+    -- e.g. {"revenue":"₹12L ARR","growthRate":"5x","capitalRaised":"$500K","revenueStatus":"amber",...}
+    traction_indicators   TEXT[] NOT NULL DEFAULT '{}',
+    traction_missing      TEXT[] NOT NULL DEFAULT '{}',
+    business_model        TEXT,
+    business_model_traits TEXT[] NOT NULL DEFAULT '{}',
+    market_problem        TEXT,
+    market_solution       TEXT,
+    improvement_items     JSONB NOT NULL DEFAULT '[]',
+    -- e.g. [{"title":"...","priority":"high","impact":"...","effort":"...","steps":["..."]}]
+    improvements          TEXT[] NOT NULL DEFAULT '{}',
+    strengths             TEXT[] NOT NULL DEFAULT '{}',
+    critical_gaps         TEXT[] NOT NULL DEFAULT '{}',
+    quick_wins            TEXT[] NOT NULL DEFAULT '{}',
+    next_steps            JSONB NOT NULL DEFAULT '[]',
+    -- e.g. [{"action":"...","impact":"high"}]
+    analyzed_at           TIMESTAMPTZ NOT NULL,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (deck_id)   -- one analysis per deck
+);
+
+-- ============================================================
+-- INVESTMENT READINESS RESULTS
+-- ============================================================
+CREATE TABLE investment_readiness_results (
+    id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id                   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    analysis_id               UUID REFERENCES deck_analyses(id) ON DELETE SET NULL,
+    -- Scores
+    overall_score             SMALLINT NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
+    readiness_level           readiness_level NOT NULL,
+    pitch_deck_quality_score  SMALLINT CHECK (pitch_deck_quality_score BETWEEN 0 AND 100),
+    traction_metrics_score    SMALLINT CHECK (traction_metrics_score BETWEEN 0 AND 100),
+    team_strength_score       SMALLINT CHECK (team_strength_score BETWEEN 0 AND 100),
+    market_timing_score       SMALLINT CHECK (market_timing_score BETWEEN 0 AND 100),
+    financial_health_score    SMALLINT CHECK (financial_health_score BETWEEN 0 AND 100),
+    -- Guidance
+    key_improvements          TEXT[] NOT NULL DEFAULT '{}',
+    next_steps                TEXT[] NOT NULL DEFAULT '{}',
+    estimated_time_to_ready   TEXT,
+    -- Input snapshot (denormalized for auditing)
+    monthly_revenue_inr       NUMERIC(18,2),
+    arr_inr                   NUMERIC(18,2),
+    customer_count            INT CHECK (customer_count >= 0),
+    revenue_growth_rate_pct   NUMERIC(7,2),
+    team_size                 INT CHECK (team_size > 0),
+    runway_months             SMALLINT CHECK (runway_months >= 0),
+    burn_rate_inr             NUMERIC(18,2),
+    sector                    TEXT,
+    stage                     TEXT,
+    has_lead_investor         BOOLEAN,
+    calculated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- VALUATION RESULTS
+-- ============================================================
+CREATE TABLE valuation_results (
+    id                       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id                  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- Output
+    sector                   TEXT NOT NULL,
+    stage                    TEXT NOT NULL,
+    valuation_low_cr         NUMERIC(18,2) NOT NULL,   -- crore INR
+    valuation_median_cr      NUMERIC(18,2) NOT NULL,
+    valuation_high_cr        NUMERIC(18,2) NOT NULL,
+    currency                 TEXT NOT NULL DEFAULT 'INR',
+    confidence_level         confidence_level NOT NULL,
+    methodology              TEXT,
+    revenue_multiple         NUMERIC(8,2),
+    comparable_companies     JSONB NOT NULL DEFAULT '[]',
+    -- e.g. [{"name":"...","valuation":"...","stage":"...","sector":"..."}]
+    key_factors              TEXT[] NOT NULL DEFAULT '{}',
+    valuation_tips           TEXT[] NOT NULL DEFAULT '{}',
+    disclaimer               TEXT,
+    -- Input snapshot
+    revenue_inr              NUMERIC(18,2),
+    arr_inr                  NUMERIC(18,2),
+    mrr_inr                  NUMERIC(18,2),
+    revenue_growth_rate_pct  NUMERIC(7,2),
+    customer_count           INT,
+    customer_growth_rate_pct NUMERIC(7,2),
+    burn_rate_inr            NUMERIC(18,2),
+    runway_months            SMALLINT,
+    team_size                INT,
+    gross_margin_pct         NUMERIC(7,2),
+    calculated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- AUDIT LOG (append-only, no updates/deletes)
+-- ============================================================
+CREATE TABLE audit_log (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+    action      TEXT NOT NULL,       -- e.g. 'deck.upload', 'analysis.complete', 'deck.delete'
+    entity_type TEXT,                -- 'deck', 'analysis', 'readiness', 'valuation'
+    entity_id   UUID,
+    metadata    JSONB,               -- any extra context
+    ip_address  INET,
+    user_agent  TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- TRIGGERS: auto-update updated_at
+-- ============================================================
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER startup_profiles_updated_at BEFORE UPDATE ON startup_profiles
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER decks_updated_at BEFORE UPDATE ON decks
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+```
+
+---
+
+## 5. Indexing Strategy
+
+### `users`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree | Row lookup |
+| `users_firebase_uid_idx` | `firebase_uid` | B-tree UNIQUE | Login sync (every request) |
+| `users_email_idx` | `email` | B-tree UNIQUE | Email-based auth lookup |
+| `users_deleted_at_idx` | `deleted_at` WHERE NULL | Partial | Filter soft-deleted users |
+
+### `startup_profiles`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree | |
+| `startup_profiles_user_id_idx` | `user_id` | B-tree UNIQUE | 1:1 join |
+| `startup_profiles_sector_stage_idx` | [(sector, stage)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | Filtering/analytics |
+
+### `decks`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree | |
+| `decks_user_id_uploaded_at_idx` | [(user_id, uploaded_at DESC)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | "My decks" list, sorted by date — most frequent query |
+| `decks_user_id_status_idx` | [(user_id, status)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | Filter completed decks for dashboard |
+| `decks_status_idx` | [status](file:///d:/IITD/app/%28dashboard%29/analyses/page.tsx#43-55) | B-tree | Admin / monitoring queries |
+| `decks_filename_trgm_idx` | `filename` | GIN (pg_trgm) | ILIKE filename search in analyses page |
+| `decks_deleted_at_idx` | `deleted_at` WHERE NULL | Partial | Exclude soft-deleted |
+
+### `deck_analyses`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree | |
+| `deck_analyses_deck_id_idx` | `deck_id` | B-tree UNIQUE | Join from deck, enforces 1:1 |
+| `deck_analyses_external_id_idx` | `external_analysis_id` | B-tree UNIQUE | Lookup by AI backend ID |
+| `deck_analyses_overall_score_idx` | `overall_score DESC` | B-tree | Sort by score in analyses list |
+| `deck_analyses_analyzed_at_idx` | `analyzed_at DESC` | B-tree | Time-series chart on dashboard |
+
+```sql
+-- Composite: get all analyses for a user, sorted by date (via deck join)
+-- Use the decks_user_id_uploaded_at_idx and join — no extra index needed here
+
+-- GIN index on flags JSONB for future filtering by flag color
+CREATE INDEX deck_analyses_flags_gin_idx ON deck_analyses USING GIN (flags);
+CREATE INDEX deck_analyses_risk_flags_gin_idx ON deck_analyses USING GIN (risk_flags);
+```
+
+### `investment_readiness_results`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree | |
+| `readiness_user_id_calc_at_idx` | [(user_id, calculated_at DESC)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | Get latest readiness for user |
+| `readiness_analysis_id_idx` | `analysis_id` | B-tree | Many-to-one join to analysis |
+
+### `valuation_results`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree | |
+| `valuation_user_id_calc_at_idx` | [(user_id, calculated_at DESC)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | Get latest valuation per user |
+| `valuation_sector_stage_idx` | [(sector, stage)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | Filter valuations by sector/stage (analytics) |
+
+### `audit_log`
+| Index | Columns | Type | Reason |
+|---|---|---|---|
+| PK | [id](file:///d:/IITD/app/%28dashboard%29/upload/page.tsx#76-86) | B-tree (bigserial) | |
+| `audit_user_id_created_at_idx` | [(user_id, created_at DESC)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | User activity history |
+| `audit_entity_idx` | [(entity_type, entity_id)](file:///d:/IITD/lib/storage.ts#14-23) | B-tree | Lookup all events for a specific entity |
+
+---
+
+## 6. Query Patterns & Optimizations
+
+### Q1 — Auth: Find user by Firebase UID (every request)
+```sql
+SELECT id, email, name, has_completed_onboarding
+FROM users
+WHERE firebase_uid = $1
+  AND deleted_at IS NULL;
+```
+**Frequency**: Very High (every authenticated page load)  
+**Optimization**: Direct B-tree lookup on `firebase_uid` unique index. Sub-millisecond. Cache result in Redis with key `user:firebase:{uid}` (TTL: 5 min).
+
+---
+
+### Q2 — Dashboard: Get user's decks + latest analysis score
+```sql
+SELECT d.id, d.filename, d.file_size_bytes, d.status, d.uploaded_at,
+       da.overall_score, da.id AS analysis_id
+FROM decks d
+LEFT JOIN deck_analyses da ON da.deck_id = d.id
+WHERE d.user_id = $1
+  AND d.deleted_at IS NULL
+ORDER BY d.uploaded_at DESC
+LIMIT 20;
+```
+**Frequency**: High (every dashboard load)  
+**Optimization**: Uses `decks_user_id_uploaded_at_idx`. LEFT JOIN avoids N+1 (single query). Index on `deck_analyses.deck_id` covers the join.
+
+---
+
+### Q3 — Dashboard: Compute average score across all analyses
+```sql
+SELECT AVG(da.overall_score)::INT AS avg_score,
+       COUNT(*) AS total_analyses
+FROM deck_analyses da
+INNER JOIN decks d ON d.id = da.deck_id
+WHERE d.user_id = $1
+  AND d.deleted_at IS NULL;
+```
+**Frequency**: High  
+**Optimization**: Aggregate over small per-user set. Consider caching in Redis (`user:stats:{id}`, TTL: 5 min) and invalidating on new analysis.
+
+---
+
+### Q4 — Dashboard: Score progression chart
+```sql
+SELECT d.uploaded_at AS date,
+       da.overall_score AS score,
+       d.filename
+FROM decks d
+INNER JOIN deck_analyses da ON da.deck_id = d.id
+WHERE d.user_id = $1
+  AND d.deleted_at IS NULL
+  AND d.status = 'completed'
+ORDER BY d.uploaded_at ASC;
+```
+**Frequency**: High  
+**Optimization**: Covered by `decks_user_id_uploaded_at_idx`. No additional index needed.
+
+---
+
+### Q5 — Analysis Detail: Fetch single analysis by ID
+```sql
+SELECT da.*, d.filename, d.uploaded_at, d.sector, d.stage
+FROM deck_analyses da
+INNER JOIN decks d ON d.id = da.deck_id
+WHERE da.id = $1;
+```
+**Frequency**: High  
+**Optimization**: PK lookup on `deck_analyses.id`. Cache entire JSON blob in Redis (`analysis:{id}`, TTL: 24h). Analyses are immutable.
+
+---
+
+### Q6 — Deck Comparison: Fetch two analyses side-by-side
+```sql
+SELECT da.id, da.overall_score, da.idea_score, da.team_score,
+       da.market_score, da.traction_score, da.risk_score, da.scalability_score,
+       da.flags, da.feedback, d.filename, d.uploaded_at
+FROM deck_analyses da
+INNER JOIN decks d ON d.id = da.deck_id
+WHERE da.deck_id = ANY($1::UUID[])  -- array of 2 deck IDs
+  AND d.user_id = $2;
+```
+**Frequency**: Medium  
+**Optimization**: Validates ownership (user_id guard). Uses PK + FK indexes.
+
+---
+
+### Q7 — Analyses List: Search by filename
+```sql
+SELECT d.id, d.filename, d.status, d.uploaded_at, da.overall_score
+FROM decks d
+LEFT JOIN deck_analyses da ON da.deck_id = d.id
+WHERE d.user_id = $1
+  AND d.deleted_at IS NULL
+  AND d.filename ILIKE '%' || $2 || '%'
+ORDER BY d.uploaded_at DESC;
+```
+**Frequency**: Medium  
+**Optimization**: `decks_filename_trgm_idx` (GIN + pg_trgm) enables fast ILIKE. Must have `CREATE EXTENSION pg_trgm`.
+
+---
+
+### Q8 — Investment Readiness: Get latest result for user
+```sql
+SELECT *
+FROM investment_readiness_results
+WHERE user_id = $1
+ORDER BY calculated_at DESC
+LIMIT 1;
+```
+**Frequency**: High  
+**Optimization**: `readiness_user_id_calc_at_idx` covers this exactly. Cache in Redis.
+
+---
+
+### Q9 — Valuation: Get latest result for user
+```sql
+SELECT *
+FROM valuation_results
+WHERE user_id = $1
+ORDER BY calculated_at DESC
+LIMIT 1;
+```
+**Frequency**: High  
+**Optimization**: `valuation_user_id_calc_at_idx` covers this.
+
+---
+
+### Q10 — Upload: Create deck record
+```sql
+INSERT INTO decks (id, user_id, filename, file_size_bytes, storage_url, mime_type,
+                   status, sector, stage, revenue_inr, team_size, founding_year,
+                   location, incorporation_status, fundraising_status, fund_raised,
+                   founder_name, founder_email, founder_phone, analysis_mode)
+VALUES ($1, $2, $3, $4, $5, $6, 'analyzing', $7, $8, $9, $10, $11,
+        $12, $13, $14, $15, $16, $17, $18, $19)
+RETURNING id;
+```
+**Frequency**: Medium (per upload event)  
+**Optimization**: Single insert; no joins. Async — caller doesn't wait for analysis.
+
+---
+
+### Q11 — Soft Delete Deck (cascades to analyses via FK)
+```sql
+-- Step 1: Soft delete the deck
+UPDATE decks SET deleted_at = NOW() WHERE id = $1 AND user_id = $2;
+
+-- Step 2: Hard delete the analysis (since it's worthless without deck context)
+DELETE FROM deck_analyses WHERE deck_id = $1;
+```
+**Frequency**: Low  
+**Optimization**: Two-step transaction. Deck soft-deleted; analysis hard-deleted (no analysis-only retention needed). Guards `user_id` to prevent cross-user deletion.
+
+---
+
+### Q12 — Save Analysis Result (from AI backend callback)
+```sql
+INSERT INTO deck_analyses (id, deck_id, external_analysis_id, overall_score, idea_score,
+    team_score, market_score, traction_score, risk_score, scalability_score,
+    percentile, feedback, feedback_gaps, flags, risk_flags, team_members,
+    team_expertise, team_gaps, traction_metrics, traction_indicators, traction_missing,
+    business_model, business_model_traits, market_problem, market_solution,
+    improvement_items, improvements, strengths, critical_gaps, quick_wins,
+    next_steps, analyzed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+    $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
+    $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+ON CONFLICT (deck_id) DO NOTHING;  -- idempotent: skip if already exists
+
+-- Mark deck as completed
+UPDATE decks SET status = 'completed', updated_at = NOW()
+WHERE id = $2;
+```
+**Frequency**: Medium  
+**Optimization**: `ON CONFLICT DO NOTHING` prevents duplicate analyses on retry. Wrap in transaction.
+
+---
+
+### Q13 — Admin Analytics: Score distribution by sector
+```sql
+SELECT sp.sector,
+       AVG(da.overall_score)::INT AS avg_score,
+       COUNT(*) AS total_analyses,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY da.overall_score) AS median_score
+FROM deck_analyses da
+INNER JOIN decks d ON d.id = da.deck_id
+INNER JOIN startup_profiles sp ON sp.user_id = d.user_id
+GROUP BY sp.sector
+ORDER BY avg_score DESC;
+```
+**Frequency**: Low (admin/reporting)  
+**Optimization**: `startup_profiles_sector_stage_idx` assists the group-by. Run as async job, cache result.
+
+---
+
+### Q14 — Onboarding: Upsert startup profile
+```sql
+INSERT INTO startup_profiles (id, user_id, startup_name, description, sector, stage, location)
+VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
+ON CONFLICT (user_id) DO UPDATE
+SET startup_name = EXCLUDED.startup_name,
+    description  = EXCLUDED.description,
+    sector       = EXCLUDED.sector,
+    stage        = EXCLUDED.stage,
+    location     = EXCLUDED.location,
+    updated_at   = NOW();
+```
+**Frequency**: Low (once per user, updatable in settings)  
+**Optimization**: `ON CONFLICT (user_id)` enforces the 1:1 relationship safely.
+
+---
+
+### Q15 — Settings: Export all user data (GDPR)
+```sql
+SELECT row_to_json(u.*) AS user,
+       row_to_json(sp.*) AS startup_profile,
+       json_agg(DISTINCT jsonb_build_object(
+           'deck', d, 'analysis', da
+       )) AS decks_and_analyses,
+       json_agg(DISTINCT r.*) AS readiness_results,
+       json_agg(DISTINCT v.*) AS valuation_results
+FROM users u
+LEFT JOIN startup_profiles sp ON sp.user_id = u.id
+LEFT JOIN decks d ON d.user_id = u.id AND d.deleted_at IS NULL
+LEFT JOIN deck_analyses da ON da.deck_id = d.id
+LEFT JOIN investment_readiness_results r ON r.user_id = u.id
+LEFT JOIN valuation_results v ON v.user_id = u.id
+WHERE u.id = $1
+GROUP BY u.id, sp.id;
+```
+**Frequency**: Very Low (on-demand, GDPR compliance)  
+**Optimization**: No optimization required; run async and stream result.
+
+---
+
+## 7. Data Integrity & Validation Rules
+
+### DB-Level Constraints
+
+| Rule | Implementation |
+|---|---|
+| Score values [0–100] | `CHECK (col BETWEEN 0 AND 100)` on all score columns |
+| File size ≤ 50MB | `CHECK (file_size_bytes <= 52428800)` |
+| Valid MIME types | `CHECK (mime_type IN (...))` enumerated list |
+| Founding year > 1900 | `CHECK (founding_year >= 1900)` |
+| One analysis per deck | `UNIQUE (deck_id)` on `deck_analyses` |
+| One profile per user | `UNIQUE (user_id)` on `startup_profiles` |
+| Enum-typed status cols | PostgreSQL `ENUM` types for `deck_status`, `flag_color`, etc. |
+| Non-negative financials | `NUMERIC(18,2)` + application-level validation |
+| Updated_at trigger | `set_updated_at()` trigger runs `BEFORE UPDATE` |
+
+### Business Rules (Application Layer)
+1. **File type validation** must happen server-side before storage (not just in the browser)
+2. **Analysis ID linkage**: `external_analysis_id` returned by the AI backend must be stored and be idempotent — retries should not create duplicate rows (`ON CONFLICT DO NOTHING`)
+3. **Ownership guard**: All deck/analysis queries MUST include `WHERE d.user_id = $userId` — never expose cross-user data
+4. **Soft delete cascade**: Deleting a user sets `deleted_at`; all their decks are soft-deleted; hard-deletes handled by a nightly scheduled job (data retention policy)
+5. **Onboarding gating**: `has_completed_onboarding = FALSE` should redirect users to `/onboarding` — enforced in the Next.js middleware, not just component-level checks
+6. **Rate limit**: Max 10 AI analysis calls per user per day — enforced via Redis counter (`rate:analysis:{user_id}`, TTL: 86400s). Store this limit in a `subscription_limits` table when billing is added.
+
+### Cascade Rules
+| Action | Cascade |
+|---|---|
+| `DELETE users` | CASCADE → `decks`, `investment_readiness_results`, `valuation_results`, `startup_profiles` |
+| `DELETE decks` | RESTRICT (must delete `deck_analyses` first) — prevents orphan analysis data |
+| `DELETE deck_analyses` | ON DELETE SET NULL in `investment_readiness_results.analysis_id` |
+| `DELETE users` (audit_log) | SET NULL on `audit_log.user_id` — preserve audit trail |
+
+---
+
+## 8. Scalability Plan
+
+### Traffic Projections (Assumptions Stated)
+> **Assumption**: 50K registered users by end of year 1, 10 analyses/user average = 500K analyses. Average 3 readiness checks and 2 valuations per user.
+
+| Table | Estimated Row Count (Y1) |
+|---|---|
+| `users` | 50,000 |
+| `startup_profiles` | 50,000 |
+| `decks` | 150,000 (avg 3 uploads/user) |
+| `deck_analyses` | 100,000 |
+| `investment_readiness_results` | 150,000 |
+| `valuation_results` | 100,000 |
+| `audit_log` | ~2M (40 events/user) |
+
+**Storage estimates**:
+- JSONB blobs per analysis: ~8KB average → 100K * 8KB = 800MB in `deck_analyses`  
+- File storage (S3): 150K files * avg 5MB = **750GB** — this MUST be in object storage, never in PostgreSQL
+- Total PostgreSQL data: ~5–8GB at Y1 — well within single-node Postgres capacity
+
+### Partitioning
+- **`audit_log`**: Partition by `created_at` (monthly range partitions). Audit data grows linearly and benefits enormously from time-based pruning.
+- **No other table** requires partitioning at Y1 scale.
+```sql
+CREATE TABLE audit_log (
+    id         BIGSERIAL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ...
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE audit_log_2026_01 PARTITION OF audit_log
+    FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+-- Auto-create monthly partitions via pg_partman
+```
+
+### Read Replicas
+- At 50K users with read-heavy dashboard traffic, add one **read replica** in Supabase (or Neon branching) for:
+  - Analytics queries (Q13 pattern)
+  - Data export (Q15 pattern)
+  - Admin dashboards
+
+### Connection Pooling
+- Use **Supabase Connection Pooler (PgBouncer)** in transaction mode
+- `max_connections` = 100 on the Postgres instance
+- Next.js serverless functions: use `DATABASE_URL` pointing to PgBouncer (port 6543 on Supabase), never direct port 5432
+- Recommended pool size per serverless function instance: **5 connections**
+
+### Caching Strategy
+```
+Redis Key Pattern          | TTL    | Invalidated On
+user:firebase:{uid}        | 5min   | User profile update
+user:stats:{uid}           | 5min   | New analysis saved
+analysis:{id}              | 24h    | Never (analyses are immutable)
+readiness:latest:{uid}     | 1h     | New readiness result saved
+valuation:latest:{uid}     | 1h     | New valuation result saved
+rate:analysis:{uid}        | 24h    | Rolling window count
+```
+
+---
+
+## 9. Migration Plan
+
+The current state has **zero server-side database**. All data lives in `localStorage`. This is a greenfield migration.
+
+### Phase 1 — Schema Creation (Non-Breaking, Day 1)
+**Goal**: Create the database without touching existing code.  
+**Rollback**: Drop all tables (no data exists yet).
+
+```sql
+-- Run all CREATE TABLE, ENUM, TRIGGER, INDEX statements from Section 4+5
+-- Verify with: SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
+```
+
+Actions:
+1. Provision Supabase project (or Neon)
+2. Apply schema from Section 4
+3. Apply indexes from Section 5
+4. Set `DATABASE_URL` in [.env.local](file:///d:/IITD/.env.local)
+5. Install Supabase JS client: `npm install @supabase/supabase-js`
+
+### Phase 2 — Auth Bridge (Day 2–3)
+**Goal**: On every Firebase login, upsert the user into PostgreSQL.  
+**Rollback**: Feature flag — disable the upsert, fall back to localStorage.
+
+```typescript
+// In a Next.js API route or middleware
+import { supabase } from '@/lib/supabase'
+
+export async function syncFirebaseUser(firebaseUser: FirebaseUser) {
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(
+      { firebase_uid: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName },
+      { onConflict: 'firebase_uid', ignoreDuplicates: false }
+    )
+    .select('id')
+    .single()
+  
+  if (error) throw error
+  return data.id  // PostgreSQL UUID for this user
+}
+```
+
+### Phase 3 — Write Path (Week 1)
+**Goal**: All new writes (deck uploads, analysis saves, readiness, valuation) go to PostgreSQL. Reads still from localStorage as fallback.  
+**Rollback**: Feature flag on each write path.
+
+Order of implementation:
+1. `deck upload` → `INSERT INTO decks`
+2. `analysis save` → `INSERT INTO deck_analyses`
+3. `readiness save` → `INSERT INTO investment_readiness_results`
+4. `valuation save` → `INSERT INTO valuation_results`
+5. `onboarding save` → `INSERT/UPSERT INTO startup_profiles`
+
+### Phase 4 — Read Path (Week 2)
+**Goal**: Switch all reads to PostgreSQL. Remove localStorage dependency.  
+**Rollback**: Re-enable `StorageService` calls.
+
+Replace calls in:
+- `useDecksStore` → API routes hitting Postgres
+- `useReadinessStore` → API routes hitting Postgres
+- `useValuationStore` → API routes hitting Postgres
+- `useAuthStore` → Firebase Auth + Postgres user sync
+
+> **⚠️ BREAKING**: `localStorage` state will be lost for existing demo users. For beta launch this is acceptable. For prod, offer a one-time data export warning.
+
+### Phase 5 — Security & Cleanup (Week 3)
+1. Enable Supabase Row Level Security (RLS)
+2. Add ownership policies (users can only read their own rows)
+3. Remove `StorageService` class and all `localStorage` calls
+4. Remove `fileData?: string` from [Deck](file:///d:/IITD/lib/types.ts#16-38) type (anti-pattern)
+5. Remove plaintext password storage in `StorageService.savePassword` (CRITICAL SECURITY ISSUE)
+
+```sql
+-- Example RLS policy
+ALTER TABLE decks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "users_own_decks" ON decks
+    FOR ALL USING (
+        user_id = (SELECT id FROM users WHERE firebase_uid = auth.uid())
+    );
+```
+
+---
+
+## 10. Risk Register
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| **Plaintext passwords in localStorage** (`StorageService.savePassword`) | High | Critical | Remove immediately in Phase 5. This is the single most dangerous bug in the codebase. Firebase handles auth — never store passwords yourselves. |
+| **No server-side auth validation** (all state in Zustand/localStorage) | High | Critical | Implement Next.js middleware to validate Firebase ID tokens on every protected route. Any user can currently spoof `isAuthenticated = true`. |
+| **`fileData?: string` on Deck type** storing binary in localStorage | Medium | High | Remove field; store files in S3/R2 only. 50MB PDFs in localStorage will crash browsers. |
+| **No user data isolation** (Zustand store has no multi-user separation) | High | High | PostgreSQL with RLS + ownership guards on all queries (Phase 3). |
+| **Analysis ID collisions** (`deck_${Date.now()}` format) | Medium | Medium | Use `uuid_generate_v4()` in Postgres. UUIDs are collision-resistant by design. |
+| **Long-running analysis blocks UI** (no async pattern) | Low | Medium | Use Firestore real-time status doc + webhook from AI backend to update deck status. |
+| **No rate limiting on AI API calls** | High | High | Redis rate limiter (`rate:analysis:{user_id}`) enforced in Next.js API route before forwarding to AI backend. |
+| **JSONB columns grow unbounded** (large analysis results) | Low | Medium | Monitor average JSONB size. Add `CHECK (octet_length(feedback::text) < 65536)` if needed. |
+| **Supabase quota limits on free tier** | Medium | Medium | Monitor row counts and API calls. Upgrade to Pro at 50K+ users. |
+| **PRD mentions "team collaboration"** but schema doesn't model it | Low | Medium | Add `team_members` junction table and `organization` entity when needed. Defer to V2. |
+
+---
+
+## 11. Open Questions
+
+The following ambiguities in the PRD or codebase — if resolved — would change design decisions:
+
+1. **Subscription model**: Does PitchIQ plan paid tiers? If yes, a `subscriptions` and `subscription_plans` table must be added before launch. The current schema has no billing surface.
+
+2. **File retention policy**: How long are uploaded pitch deck files kept in S3? GDPR requires the ability to delete. Are there legal obligations to retain them?
+
+3. **Analysis re-run**: Can a user re-analyze the same deck? The current `UNIQUE(deck_id)` constraint in `deck_analyses` prevents this. If re-analysis is required, change to 1:N and version analyses.
+
+4. **Team / organization model**: The PRD hints at team collaboration ("invite your co-founder"), but no `invitations` or `organizations` table is modeled. Clarify scope before building.
+
+5. **Backend storage of analyses**: Does the Python AI backend store analysis results server-side and return just an `analysis_id`? Or is the full analysis JSON always returned in the response body? The current [api.ts](file:///d:/IITD/lib/api.ts) fetches the full JSON, but the `analysis_id` field suggests the backend may have its own store. This determines whether we need our own pgstore or can treat the backend as authoritative.
+
+6. **Currency handling**: Financial fields (revenue, ARR, valuations) are all INR, but the [ValuationBenchmarkResponse](file:///d:/IITD/lib/api.ts#242-258) returns a `currency` string. Confirm if multi-currency support is needed; if so, all `NUMERIC` money fields need a paired `currency_code` column.
+
+7. **Percentile ranking**: `percentile` in `deck_analyses` is a single value (`0–100`). Is this computed by the AI backend relative to all analyses it has seen, or should we compute it ourselves from our PostgreSQL data? If self-computed, we need a re-calculation job.
+
+8. **`analysis_mode` field**: The [Deck](file:///d:/IITD/lib/types.ts#16-38) type and upload page accept an `analysisMode` string, but the valid values are never enumerated. Request the AI backend team to document valid `analysis_mode` values so an `ENUM` or `CHECK` constraint can be enforced.
+
+9. **Soft delete for analyses**: Currently, when a deck is deleted, the analysis is hard-deleted. The PRD does not state a retention period. Confirm whether deleted analyses should be retained for 30/60/90 days before hard-deletion (which would require soft-delete on `deck_analyses` too).
+
+10. **Auth provider expansion**: Firebase is the only auth provider today. The Backend PRD PDF was not machine-readable in this session. If the backend team has their own auth layer (e.g., JWT with a separate user store), a `federated_identities` table may be needed to map multiple providers to one `users` row.

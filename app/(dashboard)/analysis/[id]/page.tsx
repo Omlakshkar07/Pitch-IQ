@@ -55,22 +55,24 @@ function scoreLabel(score: number) {
   return "⚠️ Needs Significant Work"
 }
 
-function flagBadge(flag: "red" | "amber" | "green") {
-  const map = {
+function flagBadge(flag: string) {
+  const map: Record<string, { label: string; cls: string }> = {
     red: { label: "Critical", cls: "bg-red-500/20 text-red-400 border-red-500/40" },
     amber: { label: "Moderate", cls: "bg-amber-500/20 text-amber-400 border-amber-500/40" },
     green: { label: "Good", cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" },
   }
-  return map[flag]
+  return map[(flag ?? "").toLowerCase()] ?? { label: "Unknown", cls: "bg-muted text-muted-foreground border-border" }
 }
 
-function priorityBadge(p: "high" | "medium" | "low") {
-  const map = {
+function priorityBadge(p: string) {
+  const map: Record<string, { icon: string; cls: string }> = {
     high: { icon: "🎯", cls: "bg-red-500/20 text-red-400 border-red-500/40" },
+    critical: { icon: "🎯", cls: "bg-red-500/20 text-red-400 border-red-500/40" },
     medium: { icon: "📊", cls: "bg-amber-500/20 text-amber-400 border-amber-500/40" },
+    normal: { icon: "📊", cls: "bg-amber-500/20 text-amber-400 border-amber-500/40" },
     low: { icon: "💡", cls: "bg-blue-500/20 text-blue-400 border-blue-500/40" },
   }
-  return map[p]
+  return map[(p ?? "").toLowerCase()] ?? { icon: "📌", cls: "bg-muted text-muted-foreground border-border" }
 }
 
 function tractionStatusIcon(s: "green" | "amber" | "red") {
@@ -524,7 +526,7 @@ export default function AnalysisPage() {
                       </h4>
                       <div className="mt-1 flex flex-wrap gap-2">
                         <Badge variant="outline" className={`text-[10px] ${pb.cls}`}>
-                          {item.priority.toUpperCase()} PRIORITY
+                          {(item.priority ?? "normal").toUpperCase()} PRIORITY
                         </Badge>
                       </div>
                     </div>

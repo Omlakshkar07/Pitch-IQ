@@ -5,18 +5,21 @@ import React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Menu, X } from "lucide-react"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useAuthStore, useDecksStore, useReadinessStore, useValuationStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, logout } = useAuthStore()
   const loadDecks = useDecksStore((s) => s.loadFromStorage)
   const loadReadiness = useReadinessStore((s) => s.loadFromStorage)
   const loadValuations = useValuationStore((s) => s.loadFromStorage)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [firebaseReady, setFirebaseReady] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -25,13 +28,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     loadValuations()
   }, [loadDecks, loadReadiness, loadValuations])
 
+  // Verify real Firebase auth state before granting access
   useEffect(() => {
-    if (mounted && !isAuthenticated) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // No real Firebase session — clear stale state and redirect
+        logout()
+        router.push("/login")
+      } else {
+        setFirebaseReady(true)
+      }
+    })
+    return () => unsubscribe()
+  }, [logout, router])
+
+  useEffect(() => {
+    if (mounted && !isAuthenticated && firebaseReady) {
       router.push("/login")
     }
-  }, [mounted, isAuthenticated, router])
+  }, [mounted, isAuthenticated, firebaseReady, router])
 
-  if (!mounted || !isAuthenticated) {
+  if (!mounted || !isAuthenticated || !firebaseReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

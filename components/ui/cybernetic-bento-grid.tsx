@@ -193,7 +193,6 @@ export function CyberneticBentoGrid() {
                             title={item.title}
                             description={item.description}
                             header={item.header}
-                            icon={item.icon}
                             className={item.className}
                         />
                     ))}

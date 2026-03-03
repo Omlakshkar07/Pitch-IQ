@@ -1,16 +1,30 @@
-// Update this when you start a new ngrok tunnel or switch to localhost
-const API_ROOT =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://ccc9-2401-4900-883c-c410-945c-c66b-8e3e-e50.ngrok-free.app";
+/**
+ * lib/api.ts
+ * Client-side API module.
+ *
+ * All ML calls go through our Next.js backend (/api/ml/*), never directly
+ * to Render. This eliminates CORS issues, hides the ML API URL from the
+ * client bundle, and lets the server handle auth + DB persistence atomically.
+ *
+ * Every function requires a Firebase idToken so the backend can authenticate.
+ */
+import { auth } from "./firebase"
+import type { DeckAnalysis } from "./types"
 
-const PITCH_DECK_URL = `${API_ROOT}/api/pitch-deck`;
-const INVESTMENT_URL = `${API_ROOT}/api/investment`;
-const VALUATION_URL = `${API_ROOT}/api/valuation`;
+/** Get the current user's ID token, throwing if not authenticated. */
+async function getIdToken(): Promise<string> {
+  const user = auth.currentUser
+  if (!user) throw new Error("Not authenticated — please sign in.")
+  return user.getIdToken()
+}
 
-// ngrok free tier requires this header to skip the browser warning page
-const NGROK_HEADERS: Record<string, string> = API_ROOT.includes("ngrok")
-  ? { "ngrok-skip-browser-warning": "true" }
-  : {};
+/** Shared error handler for our backend API responses */
+async function assertBackendOk(response: Response, context: string): Promise<void> {
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: response.statusText }))
+    throw new Error(body?.error ?? `${context} failed (${response.status})`)
+  }
+}
 
 export interface AnalyzeRequest {
   file: File;
@@ -114,50 +128,49 @@ export interface AnalyzeResponse {
   detailed_analysis: DetailedAnalysis;
 }
 
+/** Response from the /api/ml/analyze backend route */
+export interface BackendAnalyzeResponse {
+  success: boolean
+  deckId: string
+  analysisId: string
+  analysis: DeckAnalysis
+}
+
+/**
+ * Upload a pitch deck and run ML analysis.
+ * Calls /api/ml/analyze (Next.js backend) which proxies to Render server-side.
+ * Returns the full DeckAnalysis + the DB-assigned deckId and analysisId.
+ * The deck and analysis are saved to Supabase by the backend in one atomic call.
+ */
 export async function analyzePitchDeck(
   request: AnalyzeRequest,
-): Promise<AnalyzeResponse> {
+): Promise<BackendAnalyzeResponse> {
+  const idToken = await getIdToken()
   const formData = new FormData();
 
-  // Required fields
   formData.append("file", request.file);
   formData.append("sector", request.sector);
   formData.append("stage", request.stage);
 
-  // Optional fields
   if (request.revenue) formData.append("revenue", request.revenue);
   if (request.team_size) formData.append("team_size", request.team_size);
-  if (request.founded_year)
-    formData.append("founded_year", request.founded_year);
+  if (request.founded_year) formData.append("founded_year", request.founded_year);
   if (request.location) formData.append("location", request.location);
-  if (request.incorporation_status)
-    formData.append("incorporation_status", request.incorporation_status);
-  if (request.fundraising_status)
-    formData.append("fundraising_status", request.fundraising_status);
-  if (request.fund_raised !== undefined)
-    formData.append("fund_raised", String(request.fund_raised));
-  if (request.founder_name)
-    formData.append("founder_name", request.founder_name);
-  if (request.founder_email)
-    formData.append("founder_email", request.founder_email);
-  if (request.founder_phone)
-    formData.append("founder_phone", request.founder_phone);
-  if (request.analysis_mode)
-    formData.append("analysis_mode", request.analysis_mode);
+  if (request.incorporation_status) formData.append("incorporation_status", request.incorporation_status);
+  if (request.fundraising_status) formData.append("fundraising_status", request.fundraising_status);
+  if (request.fund_raised !== undefined) formData.append("fund_raised", String(request.fund_raised));
+  if (request.founder_name) formData.append("founder_name", request.founder_name);
+  if (request.founder_email) formData.append("founder_email", request.founder_email);
+  if (request.founder_phone) formData.append("founder_phone", request.founder_phone);
+  if (request.analysis_mode) formData.append("analysis_mode", request.analysis_mode);
 
-  const response = await fetch(`${PITCH_DECK_URL}/analyze`, {
+  const response = await fetch("/api/ml/analyze", {
     method: "POST",
-    headers: { ...NGROK_HEADERS },
+    headers: { "Authorization": `Bearer ${idToken}` },
     body: formData,
   });
 
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `API error: ${response.status}`);
-  }
-
+  await assertBackendOk(response, "Pitch deck analysis");
   return response.json();
 }
 
@@ -197,19 +210,18 @@ export interface InvestmentReadinessResponse {
 export async function calculateInvestmentReadiness(
   request: InvestmentReadinessRequest,
 ): Promise<InvestmentReadinessResponse> {
-  const response = await fetch(`${INVESTMENT_URL}/readiness`, {
+  const idToken = await getIdToken()
+
+  const response = await fetch("/api/ml/readiness", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...NGROK_HEADERS },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`,
+    },
     body: JSON.stringify(request),
   });
 
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `API error: ${response.status}`);
-  }
-
+  await assertBackendOk(response, "Investment readiness");
   return response.json();
 }
 
@@ -259,18 +271,17 @@ export interface ValuationBenchmarkResponse {
 export async function getValuationBenchmark(
   request: ValuationBenchmarkRequest,
 ): Promise<ValuationBenchmarkResponse> {
-  const response = await fetch(`${VALUATION_URL}/benchmark`, {
+  const idToken = await getIdToken()
+
+  const response = await fetch("/api/ml/valuation", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...NGROK_HEADERS },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`,
+    },
     body: JSON.stringify(request),
   });
 
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `API error: ${response.status}`);
-  }
-
+  await assertBackendOk(response, "Valuation benchmark");
   return response.json();
 }

@@ -130,6 +130,7 @@ export default function InvestmentReadinessPage() {
         estimatedTimeToReady: response.estimated_time_to_ready,
         calculatedAt: new Date().toISOString(),
       }
+      // Sync to local store; DB persistence handled by the backend (/api/ml/readiness)
       addReadiness(stored)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to calculate readiness")

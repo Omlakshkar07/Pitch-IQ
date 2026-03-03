@@ -1,0 +1,3 @@
+﻿components/ui/cybernetic-bento-grid.tsx(196,40): error TS2339: Property 'icon' does not exist on type '{ title: string; description: string; header: Element; className: string; }'.
+components/ui/signin-page.tsx(9,24): error TS7016: Could not find a declaration file for module 'three'. 'D:/IITD/node_modules/three/build/three.module.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/three` if it exists or add a new declaration (.d.ts) file containing `declare module 'three';`

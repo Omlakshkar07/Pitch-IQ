@@ -127,6 +127,7 @@ export default function ValuationPage() {
         disclaimer: response.disclaimer,
         calculatedAt: new Date().toISOString(),
       }
+      // Sync to local store; DB persistence handled by the backend (/api/ml/valuation)
       addValuation(stored)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to get valuation benchmark")

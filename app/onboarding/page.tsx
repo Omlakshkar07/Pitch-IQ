@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Check, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { useAuthStore } from "@/lib/store"
+import { auth } from "@/lib/firebase"
 import { toast } from "sonner"
 
 const SECTORS = [
@@ -46,26 +47,66 @@ export default function OnboardingPage() {
   const router = useRouter()
   const { user, completeOnboarding } = useAuthStore()
   const [step, setStep] = useState(1)
-  const [data, setData] = useState({
-    startupName: "",
-    description: "",
+  const [startup, setStartup] = useState({
+    name: "",
+    desc: "",
     sector: "",
     stage: "",
     location: "",
   })
 
+  useEffect(() => {
+    if (!user) {
+      router.push("/login")
+    }
+  }, [user, router])
+
   if (!user) {
-    router.push("/login")
     return null
   }
 
-  const canNext1 = data.startupName.trim().length > 0
-  const canNext2 = data.sector && data.stage && data.location
+  const canNext1 = startup.name.trim().length > 0
+  const canNext2 = startup.sector && startup.stage && startup.location
 
-  function handleFinish() {
-    completeOnboarding(data)
-    toast.success("Profile setup complete! Welcome to Pitch Analyzer.")
-    router.push("/dashboard")
+  const handleComplete = async () => {
+    if (!user || !startup.name || !startup.sector || !startup.stage || !startup.location) {
+      toast.error("Please fill all required fields.");
+      return;
+    }
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const idToken = await currentUser.getIdToken();
+
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          startupName: startup.name,
+          description: startup.desc,
+          sector: startup.sector,
+          stage: startup.stage,
+          location: startup.location,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to save profile');
+      }
+
+      // Update local Zustand state
+      completeOnboarding(startup)
+      toast.success("Profile setup complete! Welcome to Pitch Analyzer.")
+      router.push("/dashboard")
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save profile. Please try again.");
+    }
   }
 
   return (
@@ -110,8 +151,8 @@ export default function OnboardingPage() {
                     <Input
                       id="startupName"
                       placeholder="e.g. TechVenture AI"
-                      value={data.startupName}
-                      onChange={(e) => setData((d) => ({ ...d, startupName: e.target.value }))}
+                      value={startup.name}
+                      onChange={(e) => setStartup((d) => ({ ...d, name: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -122,15 +163,15 @@ export default function OnboardingPage() {
                     <Textarea
                       id="desc"
                       placeholder="What does your startup do?"
-                      value={data.description}
+                      value={startup.desc}
                       onChange={(e) =>
-                        setData((d) => ({ ...d, description: e.target.value.slice(0, 200) }))
+                        setStartup((d) => ({ ...d, desc: e.target.value.slice(0, 200) }))
                       }
                       maxLength={200}
                       rows={3}
                     />
                     <p className="text-right text-xs text-muted-foreground">
-                      {data.description.length}/200
+                      {startup.desc.length}/200
                     </p>
                   </div>
                 </div>
@@ -162,8 +203,8 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <Label>Sector *</Label>
                     <Select
-                      value={data.sector}
-                      onValueChange={(v) => setData((d) => ({ ...d, sector: v }))}
+                      value={startup.sector}
+                      onValueChange={(v) => setStartup((d) => ({ ...d, sector: v }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select your sector" />
@@ -180,8 +221,8 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <Label>Stage *</Label>
                     <Select
-                      value={data.stage}
-                      onValueChange={(v) => setData((d) => ({ ...d, stage: v }))}
+                      value={startup.stage}
+                      onValueChange={(v) => setStartup((d) => ({ ...d, stage: v }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select your stage" />
@@ -198,8 +239,8 @@ export default function OnboardingPage() {
                   <div className="space-y-2">
                     <Label>Location *</Label>
                     <Select
-                      value={data.location}
-                      onValueChange={(v) => setData((d) => ({ ...d, location: v }))}
+                      value={startup.location}
+                      onValueChange={(v) => setStartup((d) => ({ ...d, location: v }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select your location" />
@@ -252,9 +293,9 @@ export default function OnboardingPage() {
                         Edit
                       </button>
                     </div>
-                    <p className="text-foreground">{data.startupName}</p>
-                    {data.description && (
-                      <p className="mt-1 text-sm text-muted-foreground">{data.description}</p>
+                    <p className="text-foreground">{startup.name}</p>
+                    {startup.desc && (
+                      <p className="mt-1 text-sm text-muted-foreground">{startup.desc}</p>
                     )}
                   </div>
                   <div className="rounded-lg border border-border p-4">
@@ -271,15 +312,15 @@ export default function OnboardingPage() {
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs text-muted-foreground">Sector</p>
-                        <p className="text-sm font-medium text-foreground">{data.sector}</p>
+                        <p className="text-sm font-medium text-foreground">{startup.sector}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Stage</p>
-                        <p className="text-sm font-medium text-foreground">{data.stage}</p>
+                        <p className="text-sm font-medium text-foreground">{startup.stage}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Location</p>
-                        <p className="text-sm font-medium text-foreground">{data.location}</p>
+                        <p className="text-sm font-medium text-foreground">{startup.location}</p>
                       </div>
                     </div>
                   </div>
@@ -290,7 +331,7 @@ export default function OnboardingPage() {
                     Back
                   </Button>
                   <Button
-                    onClick={handleFinish}
+                    onClick={handleComplete}
                     className="bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     <Check className="mr-2 h-4 w-4" />

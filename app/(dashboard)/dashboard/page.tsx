@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import {
@@ -17,7 +18,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useAuthStore, useDecksStore, useReadinessStore } from "@/lib/store"
+import { useAuthStore } from "@/lib/store"
+import { auth } from "@/lib/firebase"
 import {
   LineChart,
   Line,
@@ -30,44 +32,75 @@ import {
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
-  const { decks, analyses } = useDecksStore()
-  const latestReadiness = useReadinessStore((s) => s.getLatestReadiness())
+  const [data, setData] = React.useState<{ decks: any[], analyses: any[], latestReadiness: any }>({ decks: [], analyses: [], latestReadiness: null })
+  const [loading, setLoading] = React.useState(true)
 
-  const completedDecks = decks.filter((d) => d.status === "completed")
+  React.useEffect(() => {
+    if (!user) return;
+    const fetchData = async () => {
+      try {
+        const currentUser = auth.currentUser
+        if (!currentUser) { setLoading(false); return; }
+        const idToken = await currentUser.getIdToken()
+        const res = await fetch('/api/dashboard', {
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        })
+        const d = await res.json()
+        setData({
+          decks: Array.isArray(d.decks) ? d.decks : [],
+          analyses: Array.isArray(d.analyses) ? d.analyses : [],
+          latestReadiness: d.latestReadiness ?? null,
+        })
+      } catch (err) {
+        console.error("Dashboard fetch error:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [user])
+
+  const { decks = [], analyses = [], latestReadiness = null } = data ?? {}
+
+  const completedDecks = (decks ?? []).filter((d) => d.status === "completed")
   const latestDeck = completedDecks.sort(
-    (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+    (a, b) => new Date(b.uploaded_at || b.uploadDate).getTime() - new Date(a.uploaded_at || a.uploadDate).getTime()
   )[0]
   const latestAnalysis = latestDeck
-    ? analyses.find((a) => a.deckId === latestDeck.id)
+    ? analyses.find((a) => a.deck_id === latestDeck.id || a.deckId === latestDeck.id)
     : undefined
 
   const avgScore =
     analyses.length > 0
-      ? Math.round(analyses.reduce((sum, a) => sum + a.overallScore, 0) / analyses.length)
+      ? Math.round(analyses.reduce((sum, a) => sum + (a.overall_score || a.overallScore || 0), 0) / analyses.length)
       : 0
 
   const previousAnalysis =
     analyses.length >= 2
       ? analyses.sort(
-        (a, b) => new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime()
+        (a, b) => new Date(b.analyzed_at || b.analyzedAt).getTime() - new Date(a.analyzed_at || a.analyzedAt).getTime()
       )[1]
       : undefined
 
   const scoreDelta =
     latestAnalysis && previousAnalysis
-      ? latestAnalysis.overallScore - previousAnalysis.overallScore
+      ? (latestAnalysis.overall_score || latestAnalysis.overallScore || 0) - (previousAnalysis.overall_score || previousAnalysis.overallScore || 0)
       : 0
 
   // Chart data
   const chartData = completedDecks
     .map((deck, i) => {
-      const analysis = analyses.find((a) => a.deckId === deck.id)
+      const analysis = analyses.find((a) => a.deck_id === deck.id || a.deckId === deck.id)
       return {
         name: `v${i + 1}`,
-        score: analysis?.overallScore || 0,
+        score: analysis?.overall_score || analysis?.overallScore || 0,
       }
     })
     .reverse()
+
+  if (loading) {
+    return <div className="flex h-64 items-center justify-center text-muted-foreground animate-pulse">Loading dashboard...</div>
+  }
 
   if (decks.length === 0) {
     return (
@@ -182,7 +215,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground">Last Upload</p>
                 <p className="text-xl font-bold text-foreground">
                   {latestDeck
-                    ? formatDistanceToNow(new Date(latestDeck.uploadDate), { addSuffix: true })
+                    ? formatDistanceToNow(new Date(latestDeck.uploaded_at || latestDeck.uploadDate), { addSuffix: true })
                     : "N/A"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">Last activity</p>
@@ -206,7 +239,7 @@ export default function DashboardPage() {
               <div>
                 <p className="font-medium text-foreground">{latestDeck.filename}</p>
                 <p className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(new Date(latestDeck.uploadDate), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(latestDeck.uploaded_at || latestDeck.uploadDate), { addSuffix: true })}
                 </p>
                 <Badge
                   variant="secondary"
@@ -217,17 +250,17 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-6">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-primary">
-                  <span className="text-lg font-bold text-foreground">{latestAnalysis.overallScore}</span>
+                  <span className="text-lg font-bold text-foreground">{latestAnalysis.overall_score || latestAnalysis.overallScore || 0}</span>
                 </div>
                 <div className="flex gap-1.5">
-                  {Object.entries(latestAnalysis.flags).map(([key, flag]) => (
+                  {Object.entries(latestAnalysis.flags || {}).map(([key, flag]) => (
                     <div
                       key={key}
                       className={`h-3 w-3 rounded-full ${flag === "green"
-                          ? "bg-primary"
-                          : flag === "amber"
-                            ? "bg-[hsl(var(--flag-amber))]"
-                            : "bg-destructive"
+                        ? "bg-primary"
+                        : flag === "amber"
+                          ? "bg-[hsl(var(--flag-amber))]"
+                          : "bg-destructive"
                         }`}
                       title={`${key}: ${flag}`}
                     />

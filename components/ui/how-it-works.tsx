@@ -126,7 +126,7 @@ export function HowItWorks() {
                                 </div>
 
                                 {/* Floating Tag */}
-                                <div className="absolute -top-4 right-8 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg animate-bounce duration-[2000ms]">
+                                <div className="absolute -top-4 right-8 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg animate-bounce [animation-duration:2000ms]">
                                     New Match!
                                 </div>
                             </div>

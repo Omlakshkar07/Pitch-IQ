@@ -45,17 +45,6 @@ export const StorageService = {
     return load<UserProfile>("user")
   },
 
-  savePassword(email: string, password: string): void {
-    const passwords = load<Record<string, string>>("passwords") || {}
-    passwords[email] = password
-    save("passwords", passwords)
-  },
-
-  verifyPassword(email: string, password: string): boolean {
-    const passwords = load<Record<string, string>>("passwords") || {}
-    return passwords[email] === password
-  },
-
   saveDecks(decks: Deck[]): void {
     save("decks", decks)
   },

@@ -2,16 +2,20 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { UserProfile, SignupData, Deck, DeckAnalysis, InvestmentReadinessData, ValuationData } from "./types"
+import type { UserProfile, Deck, DeckAnalysis, InvestmentReadinessData, ValuationData } from "./types"
 import { StorageService } from "./storage"
-import { createDemoUser, SAMPLE_DECKS, SAMPLE_ANALYSES } from "./mock-data"
+import { signOut } from "firebase/auth"
+import { auth } from "./firebase"
 
 interface AuthState {
   user: UserProfile | null
   isAuthenticated: boolean
   hasCompletedOnboarding: boolean
-  login: (email: string, password: string) => void
-  signup: (data: SignupData) => void
+  /**
+   * Set the authenticated user after Firebase login.
+   * This replaces the old insecure login(email, password) pattern.
+   */
+  login: (user: { id: string; email: string; name: string }) => void
   logout: () => void
   updateProfile: (data: Partial<UserProfile>) => void
   completeOnboarding: (data: Partial<UserProfile>) => void
@@ -24,46 +28,27 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       hasCompletedOnboarding: false,
 
-      login: (email: string, password: string) => {
-        if (email === "demo@startup.com" && password === "password123") {
-          const user = createDemoUser()
-          StorageService.saveUser(user)
-          StorageService.savePassword(email, password)
-          const existingDecks = StorageService.loadDecks()
-          if (existingDecks.length === 0) {
-            StorageService.saveDecks(SAMPLE_DECKS)
-            SAMPLE_ANALYSES.forEach((a) => StorageService.saveAnalysis(a))
-          }
-          set({ user, isAuthenticated: true, hasCompletedOnboarding: true })
-          return
-        }
-
-        const storedUser = StorageService.loadUser()
-        if (storedUser && storedUser.email === email && StorageService.verifyPassword(email, password)) {
-          set({ user: storedUser, isAuthenticated: true })
-          return
-        }
-
-        throw new Error("Invalid email or password")
-      },
-
-      signup: (data: SignupData) => {
+      login: (userData: { id: string; email: string; name: string }) => {
         const user: UserProfile = {
-          id: `user_${Date.now()}`,
-          name: data.name,
-          email: data.email,
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
           startupName: "",
           sector: "",
           stage: "",
           location: "",
           createdAt: new Date().toISOString(),
         }
-        StorageService.saveUser(user)
-        StorageService.savePassword(data.email, data.password)
-        set({ user, isAuthenticated: true, hasCompletedOnboarding: false })
+        set({ user, isAuthenticated: true })
       },
 
       logout: () => {
+        // Sign out from Firebase
+        signOut(auth).catch(console.error)
+        // Clear session cookie
+        if (typeof document !== 'undefined') {
+          document.cookie = '__session=; path=/; max-age=0; SameSite=Lax'
+        }
         set({ user: null, isAuthenticated: false, hasCompletedOnboarding: false })
       },
 
@@ -72,7 +57,6 @@ export const useAuthStore = create<AuthState>()(
         if (user) {
           const updatedUser = { ...user, ...data }
           set({ user: updatedUser })
-          StorageService.saveUser(updatedUser)
         }
       },
 
@@ -81,7 +65,6 @@ export const useAuthStore = create<AuthState>()(
         if (user) {
           const updatedUser = { ...user, ...data }
           set({ user: updatedUser, hasCompletedOnboarding: true })
-          StorageService.saveUser(updatedUser)
         }
       },
     }),

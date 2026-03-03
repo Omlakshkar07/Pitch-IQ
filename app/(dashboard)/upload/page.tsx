@@ -21,11 +21,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useAuthStore, useDecksStore } from "@/lib/store";
-import { generateMockAnalysis } from "@/lib/mock-data";
-import { toast } from "sonner";
 import type { Deck } from "@/lib/types";
 import { analyzePitchDeck } from "@/lib/api";
-import { mapApiResponseToAnalysis } from "@/lib/mock-data";
+import { toast } from "sonner";
 
 const VALID_TYPES = [
   "application/pdf",
@@ -46,7 +44,7 @@ type UploadState = "idle" | "selected" | "uploading" | "processing" | "done";
 export default function UploadPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { addDeck, addAnalysis, updateDeck } = useDecksStore();
+  const { addDeck, addAnalysis } = useDecksStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -126,41 +124,15 @@ export default function UploadPage() {
       setUploadState("uploading");
       setProgress(0);
 
-      // Simulate upload progress (you can remove this if not needed)
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((r) => setTimeout(r, 100));
-        setProgress(i);
-      }
+      // Simulate upload progress bar while backend processes
+      const progressInterval = setInterval(() => {
+        setProgress((p) => Math.min(p + 5, 90));
+      }, 1_500);
 
       setUploadState("processing");
 
-      // Create deck entry
-      const deck: Deck = {
-        id: `deck_${Date.now()}`,
-        userId: user.id,
-        filename: file.name,
-        fileSize: file.size,
-        uploadDate: new Date().toISOString(),
-        status: "analyzing",
-        sector: meta.sector || undefined,
-        stage: meta.stage || undefined,
-        revenue: meta.revenue ? Number(meta.revenue) : undefined,
-        teamSize: meta.teamSize ? Number(meta.teamSize) : undefined,
-        foundingYear: meta.foundingYear ? Number(meta.foundingYear) : undefined,
-        location: meta.location || undefined,
-        incorporationStatus: meta.incorporationStatus || undefined,
-        fundraisingStatus: meta.fundraisingStatus || undefined,
-        fundRaised: meta.fundRaised,
-        founderName: meta.founderName || undefined,
-        founderEmail: meta.founderEmail || undefined,
-        founderPhone: meta.founderPhone || undefined,
-        analysisMode: meta.analysisMode || undefined,
-      };
-
-      addDeck(deck);
-
-      // Call real API
-      const apiResponse = await analyzePitchDeck({
+      // Single call: backend creates deck, runs ML analysis, saves to DB atomically
+      const result = await analyzePitchDeck({
         file,
         sector: meta.sector,
         stage: meta.stage,
@@ -177,18 +149,28 @@ export default function UploadPage() {
         analysis_mode: meta.analysisMode || undefined,
       });
 
-      // Map API response to your analysis format
-      const analysis = mapApiResponseToAnalysis(apiResponse, deck.id);
+      clearInterval(progressInterval);
+      setProgress(100);
 
-      addAnalysis(analysis);
-      updateDeck(deck.id, { status: "completed" });
+      // Sync to local store for immediate UI responsiveness  
+      const deck: Deck = {
+        id: result.deckId,
+        userId: user.id,
+        filename: file.name,
+        fileSize: file.size,
+        uploadDate: new Date().toISOString(),
+        status: "completed",
+        sector: meta.sector || undefined,
+        stage: meta.stage || undefined,
+      };
+      addDeck(deck);
+      addAnalysis(result.analysis);
 
       setUploadState("done");
       toast.success("Analysis complete!");
 
-      // Navigate to results
       setTimeout(() => {
-        router.push(`/analysis/${analysis.id}`);
+        router.push(`/analysis/${result.analysis.id}`);
       }, 1000);
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -257,11 +239,10 @@ export default function UploadPage() {
               onKeyDown={(e) =>
                 e.key === "Enter" && fileInputRef.current?.click()
               }
-              className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
-                dragOver
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-muted-foreground/30"
-              }`}
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center transition-colors ${dragOver
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-muted-foreground/30"
+                }`}
             >
               <input
                 ref={fileInputRef}
@@ -348,7 +329,7 @@ export default function UploadPage() {
               <div className="flex items-center justify-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  Analyzing your deck...
+                  Analyzing your deck... (may take up to 90s on first run)
                 </p>
               </div>
             </div>

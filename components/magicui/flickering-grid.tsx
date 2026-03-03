@@ -17,7 +17,7 @@ export const FlickeringGrid = ({
     squareSize = 4,
     gridGap = 6,
     flickerChance = 0.3,
-    color = "#E85D04",
+    color = "#9CFF1E",
     width,
     height,
     className,

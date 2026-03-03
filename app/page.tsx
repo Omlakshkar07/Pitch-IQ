@@ -9,59 +9,12 @@ import { HowItWorks } from "@/components/ui/how-it-works"
 import { TestimonialsSection } from "@/components/ui/testimonials"
 import { Logos3 } from "@/components/ui/logos3"
 import { Footer } from "@/components/ui/footer-section"
-
-const navLinks = [
-  { name: "Home", href: "/", active: true },
-  { name: "Platform", href: "#platform" },
-  { name: "For Founders", href: "#founders" },
-  { name: "For VCs & Accelerators", href: "#vcs" },
-  { name: "Pricing", href: "#pricing" },
-  { name: "Resources", href: "#resources" },
-]
-
-
+import { Navbar } from "@/components/ui/navbar"
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Navbar */}
-      <nav className="fixed left-1/2 top-6 z-50 w-[95%] max-w-7xl -translate-x-1/2 rounded-full border border-border/40 bg-background/60 px-6 py-3 shadow-md backdrop-blur-md">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-white">P</span>
-            </div>
-            <span className="text-lg font-semibold text-foreground">PitchIQ</span>
-          </div>
-
-          {/* Nav Links */}
-          <div className="hidden items-center gap-8 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className={`text-sm transition-colors ${link.active
-                  ? "font-medium text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                {link.name}
-              </Link>
-            ))}
-          </div>
-
-          {/* Auth Buttons */}
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" className="text-muted-foreground hover:text-foreground" asChild>
-              <Link href="/login">Log in</Link>
-            </Button>
-            <Button asChild className="bg-primary text-white hover:bg-primary/90 rounded-full px-6">
-              <Link href="/signup">Sign Up</Link>
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden px-6 pb-20 pt-16 md:pt-24">
@@ -70,8 +23,8 @@ export default function LandingPage() {
           className="absolute inset-0 z-0 size-full"
           squareSize={4}
           gridGap={6}
-          color="#E85D04"
-          maxOpacity={0.5}
+          color="#9CFF1E"
+          maxOpacity={0.15} /* Slightly reduced since neon green is quite bright */
           flickerChance={0.1}
         />
 
