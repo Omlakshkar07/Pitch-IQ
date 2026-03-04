@@ -8,72 +8,42 @@ import {
     CarouselItem,
 } from "@/components/ui/carousel";
 
-interface Logo {
-    id: string;
-    description: string;
-    image: string;
+interface Logos3Props {
+    heading?: string;
     className?: string;
 }
 
-interface Logos3Props {
-    heading?: string;
-    logos?: Logo[];
-    className?: string;
-}
+const SwiftseedIcon = () => (
+    <div className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300 transform scale-75 md:scale-100">
+        <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <path d="M11 2 A 4 4 0 0 1 15 6 A 4 4 0 0 1 11 10 A 4 4 0 0 1 7 6 A 4 4 0 0 1 11 2 Z" fill="#B1FF25" transform="translate(-1, 0)" />
+            <path d="M15 6 A 4 4 0 0 1 19 10 A 4 4 0 0 1 15 14 A 4 4 0 0 1 11 10 A 4 4 0 0 1 15 6 Z" fill="#B1FF25" transform="translate(0, 0)" />
+            <path d="M11 10 A 4 4 0 0 1 15 14 A 4 4 0 0 1 11 18 A 4 4 0 0 1 7 14 A 4 4 0 0 1 11 10 Z" fill="#B1FF25" transform="translate(-1, 0)" />
+            <path d="M7 6 A 4 4 0 0 1 11 10 A 4 4 0 0 1 7 14 A 4 4 0 0 1 3 10 A 4 4 0 0 1 7 6 Z" fill="#B1FF25" transform="translate(0, 0)" />
+        </svg>
+        <div className="flex flex-col justify-center">
+            <span className="text-3xl font-black text-foreground leading-none tracking-wider">
+                SWIFTSEED
+            </span>
+            <span className="text-sm font-black leading-none mt-1" style={{ color: "#B1FF25" }}>
+                VENTURES
+            </span>
+        </div>
+    </div>
+);
 
 const Logos3 = ({
     heading = "Trusted by 4,000+ Growing Companies",
-    logos = [
-        {
-            id: "logo-1",
-            description: "Spotify",
-            image: "https://upload.wikimedia.org/wikipedia/commons/2/26/Spotify_logo_with_text.svg",
-            className: "h-8 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-2",
-            description: "Coinbase",
-            image: "https://upload.wikimedia.org/wikipedia/commons/1/1a/Coinbase_Wordmark.svg",
-            className: "h-6 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-3",
-            description: "Slack",
-            image: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
-            className: "h-8 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-4",
-            description: "Dropbox",
-            image: "https://upload.wikimedia.org/wikipedia/commons/7/78/Dropbox_Icon.svg",
-            className: "h-8 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-5",
-            description: "Zoom",
-            image: "https://upload.wikimedia.org/wikipedia/commons/7/7b/Zoom.us_logo.svg",
-            className: "h-6 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-6",
-            description: "Webflow",
-            image: "https://upload.wikimedia.org/wikipedia/commons/e/e0/Webflow_logo.svg",
-            className: "h-6 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-7",
-            description: "Stripe",
-            image: "https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg",
-            className: "h-8 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-        {
-            id: "logo-8",
-            description: "Airbnb",
-            image: "https://upload.wikimedia.org/wikipedia/commons/6/69/Airbnb_Logo_B%C3%A9lo.svg",
-            className: "h-8 w-auto grayscale opacity-50 hover:opacity-100 transition-opacity",
-        },
-    ],
 }: Logos3Props) => {
+    // Generate an array of 8 instances to loop exactly as before
+    const placeholderItems = Array.from({ length: 8 }, (_, i) => i);
+
     return (
         <section className="py-24 relative overflow-hidden">
             {/* Background Glow */}
@@ -85,24 +55,20 @@ const Logos3 = ({
                 </h2>
             </div>
 
-            <div className="relative mx-auto flex items-center justify-center lg:max-w-7xl">
+            <div className="relative mx-auto flex items-center justify-center lg:max-w-7xl overflow-hidden">
                 <Carousel
                     opts={{ loop: true }}
                     plugins={[AutoScroll({ playOnInit: true, speed: 1.5 }) as any]}
                     className="w-full"
                 >
                     <CarouselContent className="ml-0">
-                        {logos.map((logo) => (
+                        {placeholderItems.map((_, idx) => (
                             <CarouselItem
-                                key={logo.id}
-                                className="flex basis-1/3 justify-center pl-0 sm:basis-1/4 md:basis-1/5 lg:basis-1/6"
+                                key={idx}
+                                className="flex basis-1/2 justify-center pl-0 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
                             >
                                 <div className="mx-6 flex shrink-0 items-center justify-center">
-                                    <img
-                                        src={logo.image}
-                                        alt={logo.description}
-                                        className={logo.className}
-                                    />
+                                    <SwiftseedIcon />
                                 </div>
                             </CarouselItem>
                         ))}
@@ -110,8 +76,8 @@ const Logos3 = ({
                 </Carousel>
 
                 {/* Fade Edges */}
-                <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-background to-transparent z-10"></div>
-                <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-background to-transparent z-10"></div>
+                <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none"></div>
+                <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none"></div>
             </div>
         </section>
     );
