@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
 
+    // Subscribe to Firebase auth state ONCE (no pathname dependency)
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
@@ -42,12 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     document.cookie = `__session=${idToken}; path=/; max-age=3600; SameSite=Lax`
                 } catch {
                     console.warn("[AuthProvider] Failed to refresh ID token")
-                }
-
-                // If on a login/signup page with a verified Firebase session,
-                // redirect to dashboard (this replaces the old middleware redirect)
-                if (AUTH_PAGES.some((p) => pathname.startsWith(p))) {
-                    router.replace("/dashboard")
                 }
             } else {
                 // Firebase says no user — clear everything
@@ -67,8 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
 
         return () => unsubscribe()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    // Separate effect: redirect authenticated users away from auth pages
+    // This runs when isAuthenticated or pathname changes, NOT inside the listener
+    useEffect(() => {
+        if (isAuthenticated && AUTH_PAGES.some((p) => pathname.startsWith(p))) {
+            router.replace("/dashboard")
+        }
+    }, [isAuthenticated, pathname, router])
 
     return <>{children}</>
 }
