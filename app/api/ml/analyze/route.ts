@@ -21,7 +21,7 @@ import { mlAnalyzePitchDeck } from '@/lib/ml-client'
 import { mapApiResponseToAnalysis } from '@/lib/mock-data'
 import type { AnalyzeResponse } from '@/lib/api'
 
-export const maxDuration = 180 // 3 minutes — allows Render free-tier cold starts
+export const maxDuration = 300 // 5 minutes — allows Render free-tier cold starts
 
 export async function POST(req: NextRequest) {
     try {
