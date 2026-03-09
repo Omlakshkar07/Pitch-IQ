@@ -13,28 +13,18 @@ interface Logos3Props {
     className?: string;
 }
 
+import Image from "next/image";
+
 const SwiftseedIcon = () => (
-    <div className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300 transform scale-75 md:scale-100">
-        <svg
-            width="64"
-            height="64"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path d="M11 2 A 4 4 0 0 1 15 6 A 4 4 0 0 1 11 10 A 4 4 0 0 1 7 6 A 4 4 0 0 1 11 2 Z" fill="#B1FF25" transform="translate(-1, 0)" />
-            <path d="M15 6 A 4 4 0 0 1 19 10 A 4 4 0 0 1 15 14 A 4 4 0 0 1 11 10 A 4 4 0 0 1 15 6 Z" fill="#B1FF25" transform="translate(0, 0)" />
-            <path d="M11 10 A 4 4 0 0 1 15 14 A 4 4 0 0 1 11 18 A 4 4 0 0 1 7 14 A 4 4 0 0 1 11 10 Z" fill="#B1FF25" transform="translate(-1, 0)" />
-            <path d="M7 6 A 4 4 0 0 1 11 10 A 4 4 0 0 1 7 14 A 4 4 0 0 1 3 10 A 4 4 0 0 1 7 6 Z" fill="#B1FF25" transform="translate(0, 0)" />
-        </svg>
-        <div className="flex flex-col justify-center">
-            <span className="text-3xl font-black text-foreground leading-none tracking-wider">
-                SWIFTSEED
-            </span>
-            <span className="text-sm font-black leading-none mt-1" style={{ color: "#B1FF25" }}>
-                VENTURES
-            </span>
-        </div>
+    <div className="flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300 transform scale-75 md:scale-100">
+        <Image
+            src="/swiftseed-logo.png"
+            alt="Swiftseed Ventures"
+            width={240}
+            height={64}
+            className="w-auto h-12 md:h-16 object-contain"
+            priority
+        />
     </div>
 );
 

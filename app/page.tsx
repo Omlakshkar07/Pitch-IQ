@@ -7,6 +7,7 @@ import { FlickeringGrid } from "@/components/magicui/flickering-grid"
 import { CyberneticBentoGrid } from "@/components/ui/cybernetic-bento-grid"
 import { HowItWorks } from "@/components/ui/how-it-works"
 import { TestimonialsSection } from "@/components/ui/testimonials"
+import { FeedbackForm } from "@/components/ui/feedback-form"
 import { Logos3 } from "@/components/ui/logos3"
 import { Footer } from "@/components/ui/footer-section"
 import { Navbar } from "@/components/ui/navbar"
@@ -50,6 +51,7 @@ export default function LandingPage() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col items-center gap-4 sm:flex-row">
+              {/* TASK 1: CTA → Signup navigation */}
               <Button
                 size="lg"
                 asChild
@@ -191,6 +193,9 @@ export default function LandingPage() {
 
       {/* Testimonials Section */}
       <TestimonialsSection />
+
+      {/* Feedback Form */}
+      <FeedbackForm />
 
       {/* Footer spacer */}
       <Footer />

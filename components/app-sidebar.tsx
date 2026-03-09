@@ -16,14 +16,15 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
+import { UpcomingBadge } from "@/components/ui/upcoming-badge"
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/upload", icon: Upload, label: "Upload Deck" },
   { href: "/analyses", icon: FileText, label: "My Analyses" },
-  { href: "/investment-readiness", icon: TrendingUp, label: "Investment Readiness" },
-  { href: "/valuation", icon: IndianRupee, label: "Valuation" },
-  { href: "/compare", icon: GitCompare, label: "Compare" },
+  { href: "/investment-readiness", icon: TrendingUp, label: "Investment Readiness", upcoming: true },
+  { href: "/valuation", icon: IndianRupee, label: "Valuation", upcoming: true },
+  { href: "/compare", icon: GitCompare, label: "Compare", upcoming: true },
   { href: "/settings", icon: Settings, label: "Settings" },
 ]
 
@@ -52,6 +53,23 @@ export function AppSidebar() {
         <div className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+
+            if (item.upcoming) {
+              return (
+                <div
+                  key={item.href}
+                  className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-muted-foreground opacity-60 cursor-not-allowed"
+                  title="This feature is coming soon"
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  <UpcomingBadge />
+                </div>
+              )
+            }
+
             return (
               <Link
                 key={item.href}

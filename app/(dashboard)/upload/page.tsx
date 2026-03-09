@@ -54,6 +54,23 @@ export default function UploadPage() {
   const [showInfo, setShowInfo] = useState(true);
   const [error, setError] = useState("");
 
+  const [formErrors, setFormErrors] = useState<{ name?: string, email?: string }>({});
+  const [touched, setTouched] = useState<{ name?: boolean, email?: boolean }>({});
+
+  function validateName(name: string) {
+    if (!name.trim()) return "Founder's name is required";
+    if (name.length < 2 || name.length > 100) return "Minimum 2 and maximum 100 characters";
+    if (!/^[a-zA-Z\s]+$/.test(name)) return "Please enter a valid name (letters only)";
+    return null;
+  }
+
+  function validateEmail(email: string) {
+    if (!email.trim()) return "Founder's email is required";
+    if (email.length > 254) return "Email too long";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Please enter a valid email address";
+    return null;
+  }
+
   // Optional metadata
   const [meta, setMeta] = useState({
     sector: "",
@@ -119,6 +136,16 @@ export default function UploadPage() {
 
   async function handleStartAnalysis() {
     if (!file || !user) return;
+
+    const nameErr = validateName(meta.founderName);
+    const emailErr = validateEmail(meta.founderEmail);
+    if (nameErr || emailErr) {
+      setFormErrors({ name: nameErr || undefined, email: emailErr || undefined });
+      setTouched({ name: true, email: true });
+      if (nameErr) document.getElementById("founderName")?.focus();
+      else if (emailErr) document.getElementById("founderEmail")?.focus();
+      return;
+    }
 
     try {
       setUploadState("uploading");
@@ -480,27 +507,53 @@ export default function UploadPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="founderName">Founder Name</Label>
+                <Label htmlFor="founderName" className={touched.name && formErrors.name ? "text-destructive" : ""}>
+                  Founder's Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="founderName"
-                  placeholder="Optional"
+                  placeholder="Your full name"
                   value={meta.founderName}
-                  onChange={(e) =>
-                    setMeta((m) => ({ ...m, founderName: e.target.value }))
-                  }
+                  className={touched.name && formErrors.name ? "border-destructive focus-visible:ring-destructive" : ""}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, name: true }));
+                    setFormErrors((e) => ({ ...e, name: validateName(meta.founderName) || undefined }));
+                  }}
+                  onChange={(e) => {
+                    setMeta((m) => ({ ...m, founderName: e.target.value }));
+                    if (touched.name) {
+                      setFormErrors((err) => ({ ...err, name: validateName(e.target.value) || undefined }));
+                    }
+                  }}
                 />
+                {touched.name && formErrors.name && (
+                  <p className="text-sm font-medium text-destructive">{formErrors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="founderEmail">Founder Email</Label>
+                <Label htmlFor="founderEmail" className={touched.email && formErrors.email ? "text-destructive" : ""}>
+                  Founder's Email <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="founderEmail"
                   type="email"
-                  placeholder="Optional"
+                  placeholder="your@email.com"
                   value={meta.founderEmail}
-                  onChange={(e) =>
-                    setMeta((m) => ({ ...m, founderEmail: e.target.value }))
-                  }
+                  className={touched.email && formErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, email: true }));
+                    setFormErrors((e) => ({ ...e, email: validateEmail(meta.founderEmail) || undefined }));
+                  }}
+                  onChange={(e) => {
+                    setMeta((m) => ({ ...m, founderEmail: e.target.value }));
+                    if (touched.email) {
+                      setFormErrors((err) => ({ ...err, email: validateEmail(e.target.value) || undefined }));
+                    }
+                  }}
                 />
+                {touched.email && formErrors.email && (
+                  <p className="text-sm font-medium text-destructive">{formErrors.email}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="founderPhone">Founder Phone</Label>
@@ -541,7 +594,15 @@ export default function UploadPage() {
           </Link>
           <Button
             onClick={handleStartAnalysis}
-            disabled={uploadState !== "selected" || !meta.sector || !meta.stage}
+            disabled={
+              uploadState !== "selected" ||
+              !meta.sector ||
+              !meta.stage ||
+              !meta.founderName ||
+              !meta.founderEmail ||
+              !!(touched.name && validateName(meta.founderName)) ||
+              !!(touched.email && validateEmail(meta.founderEmail))
+            }
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             Start Analysis

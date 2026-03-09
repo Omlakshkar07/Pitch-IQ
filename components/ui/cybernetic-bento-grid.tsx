@@ -11,6 +11,7 @@ import {
     CheckCircle2,
     Zap,
 } from "lucide-react";
+import { UpcomingBadge } from "@/components/ui/upcoming-badge";
 
 interface BentoGridItemProps {
     title: string;
@@ -18,6 +19,7 @@ interface BentoGridItemProps {
     header?: React.ReactNode;
     icon?: React.ReactNode;
     className?: string;
+    upcoming?: boolean;
 }
 
 const BentoGridItem = ({
@@ -26,23 +28,30 @@ const BentoGridItem = ({
     header,
     icon,
     className,
+    upcoming,
 }: BentoGridItemProps) => {
     return (
         <div
             className={cn(
-                "row-span-1 group/bento hover:shadow-xl transition duration-300 shadow-none p-6 bg-black/40 border border-white/10 backdrop-blur-md flex flex-col justify-between space-y-4 rounded-3xl hover:border-primary/50 relative overflow-hidden",
+                "row-span-1 group/bento hover:shadow-xl transition duration-300 shadow-none p-6 bg-black/40 border border-white/10 backdrop-blur-md flex flex-col justify-between space-y-4 rounded-3xl relative overflow-hidden",
+                !upcoming && "hover:border-primary/50",
+                upcoming && "opacity-60 cursor-not-allowed",
                 className
             )}
+            title={upcoming ? "This feature is coming soon" : undefined}
         >
             {/* Header / Mockup Area */}
-            <div className="flex-1 w-full min-h-[10rem] rounded-xl bg-gradient-to-br from-white/5 to-transparent border border-white/5 relative overflow-hidden group-hover/bento:border-primary/20 transition-colors mb-4">
+            <div className={cn("flex-1 w-full min-h-[10rem] rounded-xl bg-gradient-to-br from-white/5 to-transparent border border-white/5 relative overflow-hidden transition-colors mb-4", !upcoming && "group-hover/bento:border-primary/20", upcoming && "pointer-events-none")}>
                 {header}
             </div>
 
             {/* Content Area */}
-            <div className="group-hover/bento:translate-x-2 transition duration-200 relative z-10">
-                <div className="font-bold font-sans text-xl text-foreground mb-2 mt-2 group-hover/bento:text-primary transition-colors">
-                    {title}
+            <div className={cn("transition duration-200 relative z-10", !upcoming && "group-hover/bento:translate-x-2")}>
+                <div className="flex items-center gap-3 mb-2 mt-2">
+                    <div className={cn("font-bold font-sans text-xl text-foreground transition-colors", !upcoming && "group-hover/bento:text-primary")}>
+                        {title}
+                    </div>
+                    {upcoming && <UpcomingBadge />}
                 </div>
                 <div className="font-sans font-normal text-muted-foreground text-sm leading-relaxed">
                     {description}
@@ -50,7 +59,7 @@ const BentoGridItem = ({
             </div>
 
             {/* Hover Glow */}
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover/bento:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            {!upcoming && <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover/bento:opacity-100 transition-opacity duration-500 pointer-events-none" />}
         </div>
     );
 };
@@ -97,13 +106,14 @@ export function CyberneticBentoGrid() {
                 <div className="w-full h-full flex justify-center items-center relative">
                     <div className="absolute inset-0 bg-dot-white/[0.1]" />
                     {/* Mockup: Gauge */}
-                    <div className="relative h-24 w-24 rounded-full border-4 border-white/10 flex items-center justify-center group-hover/bento:border-primary/20 transition-colors">
-                        <div className="absolute top-0 right-0 w-full h-full border-t-4 border-r-4 border-primary rounded-full rotate-45" />
-                        <div className="text-2xl font-bold text-white">85</div>
+                    <div className="relative h-24 w-24 rounded-full border-4 border-white/10 flex items-center justify-center transition-colors">
+                        <div className="absolute top-0 right-0 w-full h-full border-t-4 border-r-4 border-primary rounded-full rotate-45 opacity-50" />
+                        <div className="text-2xl font-bold text-white opacity-50">85</div>
                     </div>
                 </div>
             ),
             className: "md:col-span-1",
+            upcoming: true,
         },
         {
             title: "Valuation Benchmarks",
@@ -114,12 +124,13 @@ export function CyberneticBentoGrid() {
                     {/* Mockup: Bar Chart */}
                     <div className="w-full h-full flex items-end justify-between gap-2 max-h-20">
                         {[40, 70, 50, 90, 60].map((h, i) => (
-                            <div key={i} className="w-full bg-white/10 rounded-t-sm hover:bg-primary transition-colors duration-300" style={{ height: `${h}%` }} />
+                            <div key={i} className="w-full bg-white/10 rounded-t-sm transition-colors duration-300 pointer-events-none" style={{ height: `${h}%` }} />
                         ))}
                     </div>
                 </div>
             ),
             className: "md:col-span-1",
+            upcoming: true,
         },
         {
             title: "Smart Matching",
@@ -194,6 +205,7 @@ export function CyberneticBentoGrid() {
                             description={item.description}
                             header={item.header}
                             className={item.className}
+                            upcoming={item.upcoming}
                         />
                     ))}
                 </div>
