@@ -29,7 +29,7 @@ const SwiftseedIcon = () => (
 );
 
 const Logos3 = ({
-    heading = "Trusted by 4,000+ Growing Companies",
+    heading = "Trusted by SwiftSeed ventures",
 }: Logos3Props) => {
     // Generate an array of 8 instances to loop exactly as before
     const placeholderItems = Array.from({ length: 8 }, (_, i) => i);
